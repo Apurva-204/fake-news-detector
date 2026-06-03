@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>VerifyNews — Check Any News Instantly</title>
+  <meta name="description" content="Simple, fast fake news detection. Paste text to verify news authenticity." />
+
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+  <style>
+    /* ===== USER DASHBOARD — Centered Card Minimal ===== */
+    .user-page {
+      min-height: calc(100vh - 70px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+      background: var(--bg-color);
+    }
+
+    .user-card {
+      width: 100%;
+      max-width: 560px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 24px;
+      padding: 3rem 2.5rem;
+      box-shadow: 0 8px 40px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .user-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #6366F1, #8B5CF6, #A78BFA);
+    }
+
+    .user-card-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.03em;
+    }
+
+    .user-card-sub {
+      font-size: 0.9375rem;
+      color: var(--text-secondary);
+      margin-bottom: 2rem;
+    }
+
+    .user-textarea {
+      width: 100%;
+      min-height: 130px;
+      padding: 1rem 1.25rem;
+      font-family: inherit;
+      font-size: 1rem;
+      color: var(--text-primary);
+      background: var(--bg-color);
+      border: 2px solid transparent;
+      border-radius: 14px;
+      resize: none;
+      line-height: 1.6;
+      transition: all 0.25s ease;
+    }
+
+    .user-textarea:focus {
+      outline: none;
+      border-color: #6366F1;
+      background: var(--card-bg);
+      box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08);
+    }
+
+    .user-textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+
+    /* Buttons */
+    .user-actions {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 1.5rem;
+    }
+
+    .user-btn-verify {
+      flex: 1;
+      padding: 0.9375rem 1.5rem;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--card-bg);
+      background: var(--text-primary); color: var(--card-bg);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .user-btn-verify:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.3);
+    }
+
+    .user-btn-verify:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .user-btn-clear {
+      padding: 0.9375rem 1.25rem;
+      font-family: inherit;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-color);
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .user-btn-clear:hover {
+      background: var(--hover-bg);
+      color: var(--text-primary);
+    }
+
+    /* ===== Result Overlay ===== */
+    .user-result {
+      display: none;
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 1px solid var(--border-color);
+      animation: fadeSlideUp 0.4s ease;
+    }
+
+    .user-result.show {
+      display: block;
+    }
+
+    @keyframes fadeSlideUp {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-verdict-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .result-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      flex-shrink: 0;
+    }
+
+    .result-icon.real {
+      background: rgba(34, 197, 94, 0.12);
+    }
+
+    .result-icon.fake {
+      background: rgba(239, 68, 68, 0.12);
+    }
+
+    .result-verdict-label {
+      font-size: 1.375rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .result-verdict-label.real { color: var(--color-real); }
+    .result-verdict-label.fake { color: var(--color-fake); }
+
+    /* Confidence meter */
+    .user-confidence {
+      margin-bottom: 1.25rem;
+    }
+
+    .user-confidence-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .user-confidence-bar {
+      height: 10px;
+      background: var(--border-alpha);
+      border-radius: 100px;
+      overflow: hidden;
+    }
+
+    .user-confidence-fill {
+      height: 100%;
+      border-radius: 100px;
+      transition: width 0.8s ease;
+    }
+
+    .user-confidence-fill.real { background: linear-gradient(90deg, #22C55E, #16A34A); }
+    .user-confidence-fill.fake { background: linear-gradient(90deg, #EF4444, #DC2626); }
+
+    /* Explanation */
+    .user-explanation {
+      background: var(--bg-color);
+      border-radius: 12px;
+      padding: 1rem 1.25rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    .user-explanation strong {
+      color: var(--text-primary);
+      display: block;
+      margin-bottom: 0.25rem;
+      font-size: 0.8125rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    /* Spinner */
+    .spin-anim {
+      display: inline-block;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: var(--card-bg);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .result-icon.uncertain {
+      background: rgba(245, 158, 11, 0.12);
+    }
+
+    .result-verdict-label.uncertain { color: #F59E0B; }
+    .user-confidence-fill.uncertain { background: linear-gradient(90deg, #F59E0B, #D97706); }
+
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header" role="banner">
+    <div class="container--wide header-inner">
+      <a href="/" class="header-brand" aria-label="Home">
+        <div class="header-title">VerifyNews</div>
+      </a>
+      <nav class="header-nav" aria-label="Main navigation">
+        <a href="/" class="active">Verify</a>
+        <a href="/explore">Explore</a>
+        {% if current_user %}
+          {% if current_user.role == 'admin' %}
+            <a href="/admin">Admin</a>
+          {% elif current_user.role == 'journalist' %}
+            <a href="/journalist">Journalist</a>
+          {% else %}
+            <a href="/dashboard">Dashboard</a>
+          {% endif %}
+          <span style="font-size:0.875rem; color:var(--text-primary); font-weight:600; margin-left:1rem;">
+            {{ current_user.username }}
+          </span>
+          <a href="/logout" style="color:var(--text-secondary);">Logout</a>
+        {% else %}
+          <a href="/login" class="btn btn--primary btn--sm" style="color:var(--bg-color);">Sign In</a>
+        {% endif %}
+        <button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left: 1rem;">🌓 Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== USER DASHBOARD — CENTERED CARD ===== -->
+  <main class="user-page" id="main-content">
+    <div class="user-card">
+      <h1 class="user-card-title">Verify News</h1>
+      <p class="user-card-sub">Paste a headline or article text below to check its authenticity.</p>
+
+      <form id="user-form" novalidate>
+
+        <!-- Text Input -->
+        <textarea
+          id="user-text"
+          class="user-textarea"
+          placeholder="Paste a headline, article, or claim here... (min. 10 characters)"
+          minlength="10"
+        ></textarea>
+        <div class="field-msg" id="text-msg"></div>
+
+        <!-- Actions -->
+        <div class="user-actions">
+          <button type="submit" class="user-btn-verify" id="verify-btn">
+            <span class="btn-label">Verify Now</span>
+          </button>
+          <button type="button" class="user-btn-clear" id="clear-btn">Clear</button>
+        </div>
+      </form>
+
+      <!-- Result -->
+      <div class="user-result" id="result-section">
+        <div class="result-verdict-row">
+          <div class="result-icon" id="result-icon">🔍</div>
+          <div class="result-verdict-label" id="result-verdict">Analyzing...</div>
+        </div>
+
+        <div class="user-confidence">
+          <div class="user-confidence-header">
+            <span>Confidence</span>
+            <span id="conf-pct">0%</span>
+          </div>
+          <div class="user-confidence-bar">
+            <div class="user-confidence-fill" id="conf-fill" style="width:0%;"></div>
+          </div>
+        </div>
+
+        <div class="user-explanation" id="result-explanation">
+          <strong>Explanation</strong>
+          <span id="explanation-text"></span>
+        </div>
+        
+        <!-- Live Web Context -->
+        <div id="live-context" style="display:none; margin-top: 1.5rem;">
+          <h3 style="font-size:0.9375rem; color:var(--text-primary); margin-bottom:0.75rem;">🌐 Live Web Context</h3>
+          <div id="live-sources" style="display:flex; flex-direction:column; gap:0.75rem;">
+          </div>
+        </div>
+      </div>
+
+      <div class="user-trust">
+        <span>ML Verified</span>
+        <span>Privacy First</span>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const form       = document.getElementById("user-form");
+      const textarea   = document.getElementById("user-text");
+      const verifyBtn  = document.getElementById("verify-btn");
+      const clearBtn   = document.getElementById("clear-btn");
+
+      const resultSec  = document.getElementById("result-section");
+      const resultIcon = document.getElementById("result-icon");
+      const resultVerdict = document.getElementById("result-verdict");
+      const confPct    = document.getElementById("conf-pct");
+      const confFill   = document.getElementById("conf-fill");
+      const explText   = document.getElementById("explanation-text");
+
+      // Clear
+      clearBtn.addEventListener("click", () => {
+        textarea.value = "";
+        textarea.classList.remove('valid', 'invalid');
+        document.getElementById('text-msg').className = 'field-msg';
+        resultSec.classList.remove("show");
+      });
+
+      // Submit
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+
+        const text = textarea.value.trim();
+        const msgEl = document.getElementById('text-msg');
+
+        /* ── Validate ── */
+        if (!text) {
+          textarea.classList.add('invalid');
+          textarea.classList.remove('valid');
+          msgEl.textContent = '✗ Please enter some text to verify.';
+          msgEl.className = 'field-msg error';
+          textarea.focus();
+          return;
+        }
+        if (text.length < 10) {
+          textarea.classList.add('invalid');
+          textarea.classList.remove('valid');
+          msgEl.textContent = '✗ Text is too short — please enter at least 10 characters.';
+          msgEl.className = 'field-msg error';
+          textarea.focus();
+          return;
+        }
+        textarea.classList.remove('invalid');
+        textarea.classList.add('valid');
+        msgEl.textContent = '✓ Input looks good!';
+        msgEl.className = 'field-msg success';
+
+        // Show loading
+        verifyBtn.disabled = true;
+        verifyBtn.innerHTML = '<span class="spin-anim"></span> Analyzing...';
+
+        try {
+          const formData = new FormData();
+          formData.append("text", text);
+
+          const response = await fetch("/predict", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.error || "Unknown error");
+
+          renderResult(data);
+        } catch (err) {
+          alert("Error: " + err.message);
+        } finally {
+          verifyBtn.disabled = false;
+          verifyBtn.innerHTML = '<span class="btn-label">Verify Now</span>';
+        }
+      });
+
+      // Live textarea feedback
+      textarea.addEventListener('input', function () {
+        const msgEl = document.getElementById('text-msg');
+        const v = this.value.trim();
+        if (!v) {
+          this.classList.remove('valid', 'invalid');
+          msgEl.className = 'field-msg';
+          return;
+        }
+        if (v.length < 10) {
+          this.classList.add('invalid'); this.classList.remove('valid');
+          msgEl.textContent = '✗ Too short — need at least 10 characters (' + v.length + ' so far).';
+          msgEl.className = 'field-msg error';
+        } else {
+          this.classList.add('valid'); this.classList.remove('invalid');
+          msgEl.textContent = '✓ ' + v.split(/\s+/).filter(Boolean).length + ' words entered — ready to verify!';
+          msgEl.className = 'field-msg success';
+        }
+      });
+
+      function renderResult(data) {
+        const isReal = data.ml_label === "real";
+        const isUncertain = data.ml_label === "uncertain";
+        const pct = Math.min(100, Math.max(0, data.ml_confidence));
+
+        const iconClass = isUncertain ? "uncertain" : (isReal ? "real" : "fake");
+        resultIcon.className = "result-icon " + iconClass;
+        resultIcon.textContent = isUncertain ? "🤔" : (isReal ? "✅" : "⚠️");
+
+        resultVerdict.className = "result-verdict-label " + iconClass;
+        resultVerdict.textContent = data.verdict;
+
+        confPct.textContent = pct.toFixed(1) + "%";
+        confFill.className = "user-confidence-fill " + iconClass;
+        confFill.style.width = pct + "%";
+
+        // Build explanation
+        let expl = "";
+        if (isUncertain) {
+          expl = "The ML model is not confident enough to make a definitive call on this content. "
+               + "It may be an unusual writing style, a new topic, or outside the training data range. "
+               + "We recommend reading the live web sources below and checking manually.";
+        } else if (isReal) {
+          expl = "The ML model classified this as consistent with real news patterns. "
+               + "The writing style and vocabulary match verified journalism in the training corpus.";
+        } else {
+          expl = "The ML model detected patterns associated with misinformation or low-credibility content.";
+        }
+        expl += ` Confidence: ${pct.toFixed(1)}%.`;
+        if (data.ocr_text) {
+          expl += " (Text was extracted from the uploaded image via OCR.)";
+        }
+        if (data.debunk_score >= 3) {
+          expl += " ⚠️ Strong debunking evidence found across multiple web sources.";
+        } else if (data.debunk_score > 0) {
+          expl += ` Live web search found ${data.debunk_score} weak signal(s) — check the sources below.`;
+        } else if (data.sources && data.sources.length > 0) {
+          expl += " Live web search found related coverage — no strong debunking signals.";
+        }
+        explText.textContent = expl;
+
+        // Render sources
+        const liveContext = document.getElementById("live-context");
+        const liveSources = document.getElementById("live-sources");
+
+        if (data.sources && data.sources.length > 0) {
+            liveSources.innerHTML = "";
+            data.sources.forEach(src => {
+                // Safety: only use URL if it's a real external http(s) link
+                const safeUrl = src.url && src.url.startsWith('http') ? src.url : null;
+
+                const el = document.createElement(safeUrl ? "a" : "div");
+                if (safeUrl) {
+                    el.href = safeUrl;
+                    el.target = "_blank";
+                    el.rel = "noopener noreferrer";
+                }
+                el.style.cssText = "display:block; padding:1rem; border:1px solid var(--border-color); border-radius:10px; text-decoration:none; background:var(--bg-color); transition: border-color 0.2s;" + (safeUrl ? "cursor:pointer;" : "");
+                el.onmouseover = () => el.style.borderColor = "var(--text-primary)";
+                el.onmouseout  = () => el.style.borderColor = "var(--border-color)";
+
+                const domain = safeUrl ? (() => { try { return new URL(safeUrl).hostname; } catch(e) { return ''; } })() : '';
+
+                el.innerHTML = `
+                    <div style="font-weight:600;font-size:0.875rem;color:var(--text-primary);margin-bottom:0.25rem;">${src.title}</div>
+                    <div style="font-size:0.8125rem;color:var(--text-secondary);margin-bottom:0.375rem;">${src.snippet}</div>
+                    ${domain ? `<div style="font-size:0.75rem;color:#6366F1;font-weight:500;">🔗 ${domain}</div>` : ''}
+                `;
+                liveSources.appendChild(el);
+            });
+            liveContext.style.display = "block";
+        } else {
+            liveContext.style.display = "none";
+        }
+
+        resultSec.classList.add("show");
+      }
+
+    })();
+  </script>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+  </script>
+</body>
+</html>

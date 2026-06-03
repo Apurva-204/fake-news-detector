@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin Dashboard — VerifyNews</title>
+  <meta name="description" content="Admin dashboard for VerifyNews. Monitor predictions, detect conflicts, and review platform activity." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+  <style>
+    /* ===== ADMIN DASHBOARD — Clean Admin Panel ===== */
+    .a-page {
+      background: var(--bg-color);
+      min-height: 100vh;
+    }
+
+    /* Admin header override */
+    .a-page .site-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    /* Layout: Sidebar + Content */
+    .a-layout {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: calc(100vh - 70px);
+    }
+
+    @media (max-width: 900px) {
+      .a-layout {
+        grid-template-columns: 1fr;
+      }
+      .a-sidebar { display: none; }
+    }
+
+    /* Sidebar */
+    .a-sidebar {
+      background: var(--card-bg);
+      border-right: 1px solid var(--border-color);
+      padding: 2rem 1.25rem;
+    }
+
+    .a-sidebar-label {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.75rem;
+      padding-left: 0.75rem;
+    }
+
+    .a-sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .a-sidebar-nav a {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6875rem 0.75rem;
+      border-radius: 10px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: all 0.15s ease;
+    }
+
+    .a-sidebar-nav a:hover {
+      background: var(--bg-color);
+      color: var(--text-primary);
+    }
+
+    .a-sidebar-nav a.active {
+      background: var(--text-primary); color: var(--bg-color);
+      color: var(--card-bg);
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+    }
+
+    .a-sidebar-nav a .nav-icon {
+      font-size: 1.125rem;
+      width: 20px;
+      text-align: center;
+    }
+
+    /* Content Area */
+    .a-content {
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+    }
+
+    .a-content-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+    }
+
+    .a-content-header h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.02em;
+    }
+
+    .a-content-header .a-refresh-btn {
+      padding: 0.5rem 1rem;
+      font-family: inherit;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #6366F1;
+      background: rgba(99, 102, 241, 0.08);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .a-content-header .a-refresh-btn:hover {
+      background: rgba(99, 102, 241, 0.15);
+    }
+
+    /* ===== STAT CARDS ===== */
+    .a-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+
+    @media (max-width: 1100px) {
+      .a-stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+
+    .a-stat-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 1.5rem;
+      border: 1px solid var(--border-color);
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .a-stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    .a-stat-card::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+    }
+
+    .a-stat-card.total::after    { background: linear-gradient(90deg, #6366F1, #818CF8); }
+    .a-stat-card.real::after     { background: linear-gradient(90deg, #22C55E, #4ADE80); }
+    .a-stat-card.fake::after     { background: linear-gradient(90deg, #EF4444, #F87171); }
+    .a-stat-card.conflict::after { background: linear-gradient(90deg, #F59E0B, #FBBF24); }
+
+    .a-stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .a-stat-card.total .a-stat-icon    { background: rgba(99, 102, 241, 0.1); }
+    .a-stat-card.real .a-stat-icon     { background: rgba(34, 197, 94, 0.1); }
+    .a-stat-card.fake .a-stat-icon     { background: rgba(239, 68, 68, 0.1); }
+    .a-stat-card.conflict .a-stat-icon { background: rgba(245, 158, 11, 0.1); }
+
+    .a-stat-label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 0.25rem;
+    }
+
+    .a-stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      letter-spacing: -0.03em;
+    }
+
+    /* ===== DATA TABLE ===== */
+    .a-table-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    .a-table-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .a-table-header h2 {
+      font-size: 1.0625rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .a-table-count {
+      font-size: 0.8125rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .a-table-wrap {
+      overflow-x: auto;
+    }
+
+    .a-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+    }
+
+    .a-table th {
+      text-align: left;
+      padding: 0.875rem 1.25rem;
+      color: var(--text-secondary);
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: var(--bg-color);
+      border-bottom: 1px solid var(--border-color);
+      white-space: nowrap;
+    }
+
+    .a-table td {
+      padding: 0.875rem 1.25rem;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-color);
+      vertical-align: top;
+    }
+
+    .a-table tbody tr {
+      transition: background 0.15s ease;
+    }
+
+    .a-table tbody tr:hover {
+      background: var(--bg-color);
+    }
+
+    .a-table .text-col {
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .a-table .ocr-col {
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-secondary);
+      font-style: italic;
+    }
+
+    .a-table .time-col {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
+    /* Badge */
+    .a-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.1875rem 0.625rem;
+      border-radius: 6px;
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .a-badge.real {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--color-real);
+    }
+
+    .a-badge.fake {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-fake);
+    }
+
+    .a-badge.conflict {
+      background: rgba(245, 158, 11, 0.1);
+      color: var(--color-suspicious);
+    }
+
+    /* Empty state */
+    .a-empty {
+      text-align: center;
+      padding: 3rem 1.5rem;
+      color: var(--text-muted);
+    }
+
+    .a-empty-icon {
+      font-size: 2.5rem;
+      margin-bottom: 0.75rem;
+      opacity: 0.4;
+    }
+
+    /* Skeleton loading */
+    .a-skeleton {
+      background: linear-gradient(90deg, #F0F0F4, #E8E8EE, #F0F0F4);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+      border-radius: 6px;
+      height: 1rem;
+      width: 60%;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body class="a-page">
+
+  <!-- ===== HEADER ===== -->
+  <header class="site-header" role="banner">
+    <div class="container--wide header-inner">
+      <a href="/" class="header-brand" aria-label="Home">
+        <div class="header-title">VerifyNews</div>
+      </a>
+      <nav class="header-nav" aria-label="Main navigation">
+        <a href="/">Verify</a>
+        <a href="/explore">Explore</a>
+        <a href="/admin" class="active">Admin</a>
+        {% if current_user %}
+          <span style="font-size:0.875rem; color:var(--text-primary); font-weight:600; margin-left:1rem;">
+            {{ current_user.username }}
+          </span>
+          <a href="/logout" style="color:var(--text-secondary);">Logout</a>
+        {% endif %}
+        <button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left: 1rem;">🌓 Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <!-- ===== ADMIN LAYOUT ===== -->
+  <div class="a-layout">
+
+    <!-- Sidebar -->
+    <aside class="a-sidebar">
+      <div class="a-sidebar-label">Navigation</div>
+      <nav class="a-sidebar-nav">
+        <a href="#" class="active" id="nav-overview">
+          <span class="nav-icon">📊</span> Overview
+        </a>
+        <a href="#" id="nav-predictions">
+          <span class="nav-icon">🔍</span> Predictions
+        </a>
+        <a href="#" id="nav-users">
+          <span class="nav-icon">👥</span> Users
+        </a>
+        <a href="#" id="nav-settings">
+          <span class="nav-icon">⚙️</span> Settings
+        </a>
+      </nav>
+
+      <div style="margin-top: 2rem;">
+        <div class="a-sidebar-label">Quick Links</div>
+        <nav class="a-sidebar-nav">
+          <a href="/">
+            <span class="nav-icon">🏠</span> User Portal
+          </a>
+          <a href="/journalist">
+            <span class="nav-icon">📰</span> Journalist Desk
+          </a>
+        </nav>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="a-content">
+
+      <!-- Header -->
+      <div class="a-content-header">
+        <h1 id="a-section-title">Platform Overview</h1>
+        <button class="a-refresh-btn" id="refresh-btn" onclick="loadAdminData()">↻ Refresh</button>
+      </div>
+
+      <!-- ===== OVERVIEW SECTION ===== -->
+      <div id="section-overview">
+        <div class="a-stats-grid">
+          <div class="a-stat-card total">
+            <div class="a-stat-icon">📈</div>
+            <div class="a-stat-label">Total Predictions</div>
+            <div class="a-stat-value" id="s-total">—</div>
+          </div>
+          <div class="a-stat-card real">
+            <div class="a-stat-icon">✅</div>
+            <div class="a-stat-label">Verified Real</div>
+            <div class="a-stat-value" id="s-real">—</div>
+          </div>
+          <div class="a-stat-card fake">
+            <div class="a-stat-icon">🚫</div>
+            <div class="a-stat-label">Detected Fake</div>
+            <div class="a-stat-value" id="s-fake">—</div>
+          </div>
+          <div class="a-stat-card conflict">
+            <div class="a-stat-icon">⚠️</div>
+            <div class="a-stat-label">Conflict Cases</div>
+            <div class="a-stat-value" id="s-conflicts">—</div>
+          </div>
+        </div>
+
+        <div class="a-table-card">
+          <div class="a-table-header">
+            <h2>Recent Activity (Quick View)</h2>
+            <span class="a-table-count" id="table-count">Loading...</span>
+          </div>
+          <div class="a-table-wrap">
+            <table class="a-table">
+              <thead><tr>
+                <th>Input Text</th><th>ML Result</th><th>Confidence</th><th>User</th><th>Timestamp</th>
+              </tr></thead>
+              <tbody id="a-tbody">
+                <tr><td colspan="5"><div class="a-empty"><div class="a-empty-icon">📋</div><p>Loading...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== PREDICTIONS SECTION ===== -->
+      <div id="section-predictions" style="display:none;">
+        <div class="a-table-card">
+          <div class="a-table-header">
+            <h2>All Predictions</h2>
+            <span class="a-table-count" id="pred-count">Loading...</span>
+          </div>
+          <div class="a-table-wrap">
+            <table class="a-table">
+              <thead><tr>
+                <th>#</th>
+                <th>Input Text</th>
+                <th>Verdict</th>
+                <th>ML Result</th>
+                <th>Confidence</th>
+                <th>User</th>
+                <th>Time</th>
+                <th>Detail</th>
+              </tr></thead>
+              <tbody id="pred-tbody">
+                <tr><td colspan="8"><div class="a-empty"><div class="a-empty-icon">🔍</div><p>Loading predictions...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Detail drawer -->
+        <div id="pred-detail" style="display:none; margin-top:1.25rem;">
+          <div class="a-table-card" style="padding:1.75rem;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+              <h2 style="font-size:1.0625rem;">📋 Prediction Detail</h2>
+              <button onclick="document.getElementById('pred-detail').style.display='none'" style="background:none;border:none;cursor:pointer;font-size:1.25rem;color:var(--text-muted);">✕</button>
+            </div>
+            <div id="pred-detail-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Users Section -->
+      <div id="section-users" style="display:none;">
+        <div class="a-table-card">
+          <div class="a-table-header">
+            <h2>Registered Users</h2>
+            <span class="a-table-count" id="users-count">Loading...</span>
+          </div>
+          <div class="a-table-wrap">
+            <table class="a-table">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Username</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Joined</th>
+                </tr>
+              </thead>
+              <tbody id="u-tbody">
+                <tr><td colspan="5"><div class="a-empty"><p>Loading users...</p></div></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Section -->
+      <div id="section-settings" style="display:none;">
+        <div class="a-table-card" style="padding: 2.5rem;">
+            <h2 style="font-size: 1.5rem; color:var(--text-primary); margin-bottom: 1rem;">Platform Settings</h2>
+            <p style="color:var(--text-secondary); line-height: 1.6;">Global system settings, ML thresholds, and API configurations will be available here soon.</p>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script>
+    async function loadAdminData() {
+      try {
+        const response = await fetch('/api/logs');
+        const data = await response.json();
+
+        // Stats
+        document.getElementById("s-total").textContent = data.stats.total;
+        document.getElementById("s-real").textContent = data.stats.real;
+        document.getElementById("s-fake").textContent = data.stats.fake;
+        document.getElementById("s-conflicts").textContent = data.stats.conflicts;
+
+        // Table
+        const tbody = document.getElementById("a-tbody");
+        const countEl = document.getElementById("table-count");
+        tbody.innerHTML = "";
+
+        if (data.logs.length === 0) {
+          tbody.innerHTML = `
+            <tr>
+              <td colspan="6">
+                <div class="a-empty">
+                  <div class="a-empty-icon">📋</div>
+                  <p>No predictions recorded yet.</p>
+                </div>
+              </td>
+            </tr>
+          `;
+          countEl.textContent = "0 records";
+          return;
+        }
+
+        countEl.textContent = data.logs.length + " record" + (data.logs.length !== 1 ? "s" : "");
+
+        data.logs.forEach(log => {
+          const tr = document.createElement("tr");
+
+          // ML result badge
+          let badge = `<span class="a-badge conflict">Unknown</span>`;
+          if (log.ml_result === "real") badge = `<span class="a-badge real">Real</span>`;
+          if (log.ml_result === "fake") badge = `<span class="a-badge fake">Fake</span>`;
+
+          const ocrText = log.ocr_text
+            ? `<span title="${escapeHtml(log.ocr_text)}">${escapeHtml(log.ocr_text.substring(0, 60))}${log.ocr_text.length > 60 ? '…' : ''}</span>`
+            : '<span style="color:var(--text-muted);">—</span>';
+
+          const confPct = log.confidence != null ? log.confidence.toFixed(1) + "%" : "—";
+
+          tr.innerHTML = `
+            <td class="text-col" title="${escapeHtml(log.text_snippet)}">${escapeHtml(log.text_snippet)}</td>
+            <td class="ocr-col">${ocrText}</td>
+            <td>${badge}</td>
+            <td style="font-weight:600;">${confPct}</td>
+            <td style="font-weight:500;">${escapeHtml(log.submitted_by)}</td>
+            <td class="time-col">${log.timestamp}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch (e) {
+        console.error("Failed to load admin data", e);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    const SECTIONS = ['overview','predictions','users','settings'];
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.a-sidebar-nav a').forEach(a => a.classList.remove('active'));
+      const navEl = document.getElementById('nav-' + tabId);
+      if (navEl) navEl.classList.add('active');
+
+      SECTIONS.forEach(s => {
+        const el = document.getElementById('section-' + s);
+        if (el) el.style.display = 'none';
+      });
+      const target = document.getElementById('section-' + tabId);
+      if (target) target.style.display = 'block';
+
+      const titles = { overview:'Platform Overview', predictions:'All Predictions', users:'Registered Users', settings:'Platform Settings' };
+      document.getElementById('a-section-title').textContent = titles[tabId] || 'Admin';
+
+      if (tabId === 'users') loadUsersData();
+      if (tabId === 'predictions') loadPredictionsData();
+    }
+
+    document.getElementById('nav-overview').addEventListener('click',    e => { e.preventDefault(); switchTab('overview'); });
+    document.getElementById('nav-predictions').addEventListener('click', e => { e.preventDefault(); switchTab('predictions'); });
+    document.getElementById('nav-users').addEventListener('click',       e => { e.preventDefault(); switchTab('users'); });
+    document.getElementById('nav-settings').addEventListener('click',    e => { e.preventDefault(); switchTab('settings'); });
+
+    // ---- Overview quick table ----
+    async function loadAdminData() {
+      try {
+        const response = await fetch('/api/logs');
+        const data = await response.json();
+        document.getElementById('s-total').textContent     = data.stats.total;
+        document.getElementById('s-real').textContent      = data.stats.real;
+        document.getElementById('s-fake').textContent      = data.stats.fake;
+        document.getElementById('s-conflicts').textContent = data.stats.conflicts;
+
+        const tbody   = document.getElementById('a-tbody');
+        const countEl = document.getElementById('table-count');
+        tbody.innerHTML = '';
+        if (!data.logs.length) {
+          tbody.innerHTML = '<tr><td colspan="5"><div class="a-empty"><div class="a-empty-icon">📋</div><p>No predictions yet.</p></div></td></tr>';
+          countEl.textContent = '0 records'; return;
+        }
+        countEl.textContent = data.logs.length + ' record' + (data.logs.length !== 1 ? 's' : '');
+        data.logs.slice(0, 10).forEach(log => {
+          let badge = '<span class="a-badge conflict">Unknown</span>';
+          if (log.ml_result === 'real') badge = '<span class="a-badge real">Real</span>';
+          if (log.ml_result === 'fake') badge = '<span class="a-badge fake">Fake</span>';
+          const confPct = log.confidence != null ? log.confidence.toFixed(1) + '%' : '—';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td class="text-col" title="${escapeHtml(log.text_snippet)}">${escapeHtml(log.text_snippet)}</td>
+            <td>${badge}</td><td style="font-weight:600;">${confPct}</td>
+            <td style="font-weight:500;">${escapeHtml(log.submitted_by)}</td>
+            <td class="time-col">${log.timestamp}</td>`;
+          tbody.appendChild(tr);
+        });
+      } catch(e) { console.error('Failed to load admin data', e); }
+    }
+
+    // ---- Predictions full table ----
+    let _allLogs = [];
+    async function loadPredictionsData() {
+      try {
+        const response = await fetch('/api/logs');
+        const data = await response.json();
+        _allLogs = data.logs || [];
+        const tbody   = document.getElementById('pred-tbody');
+        const countEl = document.getElementById('pred-count');
+        tbody.innerHTML = '';
+        if (!_allLogs.length) {
+          tbody.innerHTML = '<tr><td colspan="8"><div class="a-empty"><div class="a-empty-icon">🔍</div><p>No predictions recorded yet.</p></div></td></tr>';
+          countEl.textContent = '0 records'; return;
+        }
+        countEl.textContent = _allLogs.length + ' record' + (_allLogs.length !== 1 ? 's' : '');
+        _allLogs.forEach((log, idx) => {
+          let mlBadge = '<span class="a-badge conflict">Unknown</span>';
+          if (log.ml_result === 'real') mlBadge = '<span class="a-badge real">✅ Real</span>';
+          if (log.ml_result === 'fake') mlBadge = '<span class="a-badge fake">🚫 Fake</span>';
+
+          const verdict = log.verdict || log.ml_result || '—';
+          let vClass = 'conflict';
+          if ((verdict+'').toLowerCase().includes('real')) vClass = 'real';
+          if ((verdict+'').toLowerCase().includes('fake')) vClass = 'fake';
+          const verdictBadge = `<span class="a-badge ${vClass}">${escapeHtml(verdict)}</span>`;
+
+          const confPct = log.confidence != null ? log.confidence.toFixed(1) + '%' : '—';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td style="color:var(--text-muted);font-size:.75rem;">#${log.id || idx+1}</td>
+            <td class="text-col" title="${escapeHtml(log.input_text || log.text_snippet)}">${escapeHtml((log.input_text || log.text_snippet || '').substring(0, 80))}${(log.input_text||'').length > 80 ? '…' : ''}</td>
+            <td>${verdictBadge}</td>
+            <td>${mlBadge}</td>
+            <td style="font-weight:700;">${confPct}</td>
+            <td style="font-weight:500;">${escapeHtml(log.submitted_by || '—')}</td>
+            <td class="time-col">${log.timestamp || '—'}</td>
+            <td><button onclick="showDetail(${idx})" style="background:rgba(99,102,241,.1);color:#6366F1;border:none;border-radius:6px;padding:.25rem .75rem;font-size:.75rem;font-weight:700;cursor:pointer;">View</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch(e) { console.error('Failed to load predictions', e); }
+    }
+
+    function showDetail(idx) {
+      const log = _allLogs[idx];
+      if (!log) return;
+      let mlBadge = log.ml_result === 'real'
+        ? '<span class="a-badge real" style="font-size:.875rem;padding:.375rem .875rem;">✅ Real News</span>'
+        : '<span class="a-badge fake" style="font-size:.875rem;padding:.375rem .875rem;">🚫 Fake News</span>';
+      const confPct = log.confidence != null ? log.confidence.toFixed(1) + '%' : '—';
+      const fullText = log.input_text || log.text_snippet || 'N/A';
+      document.getElementById('pred-detail-body').innerHTML = `
+        <div style="grid-column:1/-1;">
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">Full Input Text</div>
+          <div style="background:var(--bg-color);border:1px solid var(--border-color);border-radius:10px;padding:1rem 1.25rem;font-size:.875rem;color:var(--text-secondary);line-height:1.7;max-height:160px;overflow-y:auto;white-space:pre-wrap;">${escapeHtml(fullText)}</div>
+        </div>
+        <div>
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.625rem;">ML Prediction</div>
+          <div>${mlBadge}</div>
+        </div>
+        <div>
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.625rem;">Confidence Score</div>
+          <div style="font-size:1.75rem;font-weight:800;color:var(--text-primary);">${confPct}</div>
+        </div>
+        <div>
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.625rem;">Verdict</div>
+          <div style="font-size:.9375rem;font-weight:700;color:var(--text-primary);">${escapeHtml(log.verdict || log.ml_result || '—')}</div>
+        </div>
+        <div>
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.625rem;">Submitted By</div>
+          <div style="font-size:.9375rem;font-weight:600;color:var(--text-primary);">${escapeHtml(log.submitted_by || '—')}</div>
+        </div>
+        <div>
+          <div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.625rem;">Timestamp</div>
+          <div style="font-size:.875rem;color:var(--text-secondary);">${log.timestamp || '—'}</div>
+        </div>
+        ${log.ocr_text ? `<div style="grid-column:1/-1;"><div style="font-size:.6875rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:.5rem;">OCR Extracted Text</div><div style="background:var(--bg-color);border:1px solid var(--border-color);border-radius:10px;padding:1rem 1.25rem;font-family:'JetBrains Mono',monospace;font-size:.8125rem;color:var(--text-secondary);max-height:120px;overflow-y:auto;">${escapeHtml(log.ocr_text)}</div></div>` : ''}
+      `;
+      const detailEl = document.getElementById('pred-detail');
+      detailEl.style.display = 'block';
+      detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ---- Users table ----
+    async function loadUsersData() {
+      try {
+        const res = await fetch('/api/users');
+        const data = await res.json();
+        const tbody = document.getElementById('u-tbody');
+        document.getElementById('users-count').textContent = data.users.length + ' users';
+        tbody.innerHTML = '';
+        data.users.forEach(u => {
+          let roleBadge = u.role === 'admin'
+            ? '<span class="a-badge fake">Admin</span>'
+            : u.role === 'journalist'
+              ? '<span class="a-badge real">Journalist</span>'
+              : '<span class="a-badge" style="background:rgba(99,102,241,0.1);color:#6366F1;">User</span>';
+          tbody.innerHTML += `<tr>
+            <td>#${u.id}</td>
+            <td style="font-weight:600;">${escapeHtml(u.username)}</td>
+            <td>${escapeHtml(u.email)}</td>
+            <td>${roleBadge}</td>
+            <td class="time-col">${u.created_at}</td>
+          </tr>`;
+        });
+      } catch(e) { console.error(e); }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadAdminData);
+  </script>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.env
+.venv/
+
+# Flask / App specific
+uploads/
+*.db
+instance/
+
+# ML model binaries (large files — regenerate with train_model.py)
+model/*.pkl
+
+# IDE / OS
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+train_output.txt
+
+# Distribution / packaging
+*.zip

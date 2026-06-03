@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>User Dashboard — Fake News Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container--wide header-inner">
+      <a href="/" class="header-brand">
+        <div class="header-title">VerifyNews</div>
+      </a>
+      <nav class="header-nav" aria-label="Main navigation">
+        <a href="/">Verify</a>
+        <a href="/explore">Explore</a>
+        {% if current_user %}
+          {% if current_user.role == 'admin' %}
+            <a href="/admin">Admin</a>
+          {% elif current_user.role == 'journalist' %}
+            <a href="/journalist">Journalist</a>
+          {% else %}
+            <a href="/dashboard" class="active">Dashboard</a>
+          {% endif %}
+          <span style="font-size:0.875rem; color:var(--text-primary); font-weight:600; margin-left:1rem;">
+            {{ current_user.username }}
+          </span>
+          <a href="/logout" style="color:var(--text-secondary);">Logout</a>
+        {% endif %}
+        <button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left: 1rem;">🌓 Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container--wide dash-layout">
+    
+    <!-- Sidebar -->
+    <aside>
+      <nav class="sidebar-nav" id="dash-nav">
+        <a href="#dashboard" class="active" data-target="section-dashboard">Dashboard</a>
+        <a href="#history" data-target="section-history">History</a>
+        <a href="#saved" data-target="section-saved">Saved</a>
+        <a href="#profile" data-target="section-profile">Profile</a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <section id="main-sections">
+      
+      <!-- Dashboard & History Section -->
+      <div id="section-dashboard" class="dash-section">
+        <h1 style="margin-bottom:2rem; font-size:1.5rem;">Your Activity</h1>
+        <div style="display:flex; flex-direction:column; gap:1rem;">
+          {% if logs %}
+            {% for log in logs %}
+              <div class="card soft-card" style="display:flex; align-items:center; justify-content:space-between; padding:1.25rem 1.5rem; margin-bottom:0;">
+                <div style="flex:1; padding-right:1rem;">
+                  <p style="font-size:0.875rem; color:var(--text-primary); font-weight:500; margin-bottom:0.25rem;">
+                    {{ log.text_snippet }}
+                  </p>
+                  <span style="font-size:0.75rem; color:var(--text-secondary);">{{ log.timestamp }}</span>
+                </div>
+                <div>
+                  {% if log.ml_result == 'real' %}
+                    <span class="tag tag--real">Real</span>
+                  {% elif log.ml_result == 'fake' %}
+                    <span class="tag tag--fake">Fake</span>
+                  {% else %}
+                    <span class="tag tag--grey">Unknown</span>
+                  {% endif %}
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="card soft-card" style="text-align:center; padding:3rem 1.5rem;">
+              <p>You haven't verified any news yet.</p>
+              <a href="/" class="btn btn--primary btn--sm" style="margin-top:1rem;">Verify News</a>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Saved Section -->
+      <div id="section-saved" class="dash-section" style="display: none;">
+        <h1 style="margin-bottom:2rem; font-size:1.5rem;">Saved Items</h1>
+        <div class="card soft-card" style="text-align:center; padding:3rem 1.5rem;">
+          <p>You don't have any saved items.</p>
+        </div>
+      </div>
+
+      <!-- Profile Section -->
+      <div id="section-profile" class="dash-section" style="display: none;">
+        <h1 style="margin-bottom:2rem; font-size:1.5rem;">Profile</h1>
+        <div class="card soft-card" style="padding:1.5rem;">
+          <h3 style="font-size:1rem; margin-bottom:0.5rem;">{{ current_user.username }}</h3>
+          <p style="font-size:0.875rem; color:var(--text-secondary); margin-bottom:1rem;">Role: {{ current_user.role|capitalize }}</p>
+          <a href="/logout" class="btn btn--secondary btn--sm" style="color:var(--color-fake); border-color:#FECACA;">Logout</a>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    (function(){
+      const navLinks = document.querySelectorAll("#dash-nav a");
+      const sections = document.querySelectorAll(".dash-section");
+
+      navLinks.forEach(link => {
+        link.addEventListener("click", function(e) {
+          e.preventDefault();
+          
+          // Remove active from all links
+          navLinks.forEach(l => l.classList.remove("active"));
+          // Add active to clicked
+          this.classList.add("active");
+
+          const targetId = this.getAttribute("data-target");
+
+          // Hide all sections
+          sections.forEach(sec => sec.style.display = "none");
+          
+          // Dashboard and History share the same section for now
+          if (targetId === "section-history") {
+            document.getElementById("section-dashboard").style.display = "block";
+          } else {
+            const targetEl = document.getElementById(targetId);
+            if(targetEl) targetEl.style.display = "block";
+          }
+        });
+      });
+    })();
+  </script>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+  </script>
+</body>
+</html>

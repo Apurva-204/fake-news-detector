@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login — Fake News Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <style>
+    .auth-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+    }
+    .auth-header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .auth-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .auth-header p {
+      font-size: 0.875rem;
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+    }
+    .auth-footer a {
+      color: var(--text-primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+    }
+    .alert--error {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-fake);
+    }
+    /* ── Inline validation feedback ── */
+    .field-error {
+      display: none;
+      font-size: 0.78rem;
+      margin-top: 0.3rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .field-error.error   { color: #DC2626; background: rgba(239,68,68,.08); display: flex; align-items: center; gap: .35rem; }
+    .field-error.success { color: #16A34A; background: rgba(34,197,94,.08); display: flex; align-items: center; gap: .35rem; }
+    .form-input.invalid  { border-color: #EF4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
+    .form-input.valid    { border-color: #22C55E !important; box-shadow: 0 0 0 3px rgba(34,197,94,.10) !important; }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body>
+  <div style="position:absolute; top:1rem; right:1rem;"><button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left: 1rem;">🌓 Theme</button></div>
+  <div class="auth-wrapper">
+    <div class="card auth-card">
+      <div class="auth-header">
+        <h1>Welcome back</h1>
+        <p>Sign in to your account</p>
+      </div>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          <div class="alert alert--{{ category }}">
+            {{ message }}
+          </div>
+        {% endfor %}
+      {% endwith %}
+
+      {% if error %}
+        <div class="alert alert--error">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('main.login') }}" id="login-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="username">Username</label>
+          <input class="form-input" type="text" id="username" name="username"
+            placeholder="Enter your username" required
+            autocomplete="username" />
+          <div class="field-error" id="err-username"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" type="password" id="password" name="password"
+            placeholder="Enter your password" required
+            autocomplete="current-password" />
+          <div class="field-error" id="err-password"></div>
+        </div>
+        <button type="submit" class="btn btn--primary" style="width: 100%;">Login</button>
+      </form>
+
+      <div class="auth-footer">
+        <p>Don't have an account? <a href="{{ url_for('main.register') }}">Create account</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    /* ── Login form validation ── */
+    (function () {
+      const form   = document.getElementById('login-form');
+      const uInput = document.getElementById('username');
+      const pInput = document.getElementById('password');
+
+      function setField(input, errEl, ok, msg) {
+        input.classList.toggle('valid',   ok);
+        input.classList.toggle('invalid', !ok);
+        errEl.textContent = (ok ? '✓ ' : '✗ ') + msg;
+        errEl.className = 'field-error ' + (ok ? 'success' : 'error');
+      }
+
+      function validateUsername() {
+        const v = uInput.value.trim();
+        if (!v) { setField(uInput, document.getElementById('err-username'), false, 'Username is required.'); return false; }
+        setField(uInput, document.getElementById('err-username'), true, 'OK');
+        return true;
+      }
+
+      function validatePassword() {
+        const v = pInput.value;
+        if (!v) { setField(pInput, document.getElementById('err-password'), false, 'Password is required.'); return false; }
+        setField(pInput, document.getElementById('err-password'), true, 'OK');
+        return true;
+      }
+
+      uInput.addEventListener('blur',  validateUsername);
+      pInput.addEventListener('blur',  validatePassword);
+
+      form.addEventListener('submit', function (e) {
+        const ok = [validateUsername(), validatePassword()];
+        if (ok.includes(false)) {
+          e.preventDefault();
+          const first = form.querySelector('.invalid');
+          if (first) first.focus();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

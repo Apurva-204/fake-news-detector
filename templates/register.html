@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account — Fake News Detection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <style>
+    .auth-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    .auth-card {
+      width: 100%;
+      max-width: 440px;
+    }
+    .auth-header {
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+    .auth-header h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    .auth-header p {
+      font-size: 0.875rem;
+    }
+    .auth-footer {
+      text-align: center;
+      margin-top: 1.5rem;
+      font-size: 0.875rem;
+    }
+    .auth-footer a {
+      color: var(--text-primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 0.875rem;
+    }
+    .alert--error {
+      background: rgba(239, 68, 68, 0.1);
+      color: var(--color-fake);
+    }
+    .alert--success {
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--color-real);
+    }
+    /* ── Inline validation feedback ── */
+    .field-error {
+      display: none;
+      font-size: 0.78rem;
+      margin-top: 0.3rem;
+      padding: 0.3rem 0.6rem;
+      border-radius: 6px;
+      font-weight: 500;
+    }
+    .field-error.error   { color: #DC2626; background: rgba(239,68,68,.08); display: flex; align-items: center; gap: .35rem; }
+    .field-error.success { color: #16A34A; background: rgba(34,197,94,.08); display: flex; align-items: center; gap: .35rem; }
+    .form-input.invalid  { border-color: #EF4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
+    .form-input.valid    { border-color: #22C55E !important; box-shadow: 0 0 0 3px rgba(34,197,94,.10) !important; }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body>
+  <div style="position:absolute; top:1rem; right:1rem;"><button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left: 1rem;">🌓 Theme</button></div>
+  <div class="auth-wrapper">
+    <div class="card auth-card">
+      <div class="auth-header">
+        <h1>Create Account</h1>
+        <p>Join to start detecting fake news</p>
+      </div>
+
+      {% if success %}
+        <div class="alert alert--success">
+          {{ success }} <br>
+          <a href="{{ url_for('main.login') }}" style="color:var(--color-real); font-weight:600;">Go to Login &rarr;</a>
+        </div>
+      {% endif %}
+
+      {% if error %}
+        <div class="alert alert--error">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('main.register') }}" id="register-form" novalidate>
+        <div class="form-group">
+          <label class="form-label" for="username">Name / Username</label>
+          <input class="form-input" type="text" id="username" name="username"
+            placeholder="3–20 letters, numbers or underscores" required
+            autocomplete="username" />
+          <div class="field-error" id="err-username"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="email">Email</label>
+          <input class="form-input" type="email" id="email" name="email"
+            placeholder="you@example.com" required
+            autocomplete="email" />
+          <div class="field-error" id="err-email"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="password">Password</label>
+          <input class="form-input" type="password" id="password" name="password"
+            placeholder="At least 6 characters" required
+            autocomplete="new-password" minlength="6" />
+          <div class="field-error" id="err-password"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="confirm_password">Confirm Password</label>
+          <input class="form-input" type="password" id="confirm_password" name="confirm_password"
+            placeholder="Re-enter your password" required
+            autocomplete="new-password" />
+          <div class="field-error" id="err-confirm"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="role">Role</label>
+          <select class="form-input" id="role" name="role" style="appearance: auto;" required>
+            <option value="" disabled selected>— Select a role —</option>
+            <option value="user">User</option>
+            <option value="journalist">Journalist</option>
+          </select>
+          <div class="field-error" id="err-role"></div>
+        </div>
+
+        <button type="submit" class="btn btn--primary" id="register-btn" style="width: 100%;">Create Account</button>
+      </form>
+
+      <div class="auth-footer">
+        <p>Already have an account? <a href="{{ url_for('main.login') }}">Sign in</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const current = document.documentElement.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+
+    /* ── Registration form validation ── */
+    (function () {
+      const form     = document.getElementById('register-form');
+      const uInput   = document.getElementById('username');
+      const eInput   = document.getElementById('email');
+      const pInput   = document.getElementById('password');
+      const cInput   = document.getElementById('confirm_password');
+      const rInput   = document.getElementById('role');
+
+      function setField(input, errEl, ok, msg) {
+        input.classList.toggle('valid',   ok);
+        input.classList.toggle('invalid', !ok);
+        errEl.textContent = (ok ? '✓ ' : '✗ ') + msg;
+        errEl.className = 'field-error ' + (ok ? 'success' : 'error');
+      }
+
+      function validateUsername() {
+        const v = uInput.value.trim();
+        if (!v) return setField(uInput, document.getElementById('err-username'), false, 'Username is required.');
+        if (!/^[A-Za-z0-9_]{3,20}$/.test(v))
+          return setField(uInput, document.getElementById('err-username'), false, '3–20 characters: letters, numbers, or underscores only.');
+        setField(uInput, document.getElementById('err-username'), true, 'Looks good!');
+        return true;
+      }
+
+      function validateEmail() {
+        const v = eInput.value.trim();
+        if (!v) return setField(eInput, document.getElementById('err-email'), false, 'Email is required.');
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))
+          return setField(eInput, document.getElementById('err-email'), false, 'Enter a valid email address (e.g. you@example.com).');
+        setField(eInput, document.getElementById('err-email'), true, 'Valid email address.');
+        return true;
+      }
+
+      function validatePassword() {
+        const v = pInput.value;
+        if (!v) return setField(pInput, document.getElementById('err-password'), false, 'Password is required.');
+        if (v.length < 6)
+          return setField(pInput, document.getElementById('err-password'), false, 'Password must be at least 6 characters long.');
+        setField(pInput, document.getElementById('err-password'), true, 'Strong enough — good!');
+        if (cInput.value) validateConfirm();
+        return true;
+      }
+
+      function validateConfirm() {
+        const v = cInput.value;
+        if (!v) return setField(cInput, document.getElementById('err-confirm'), false, 'Please re-enter your password.');
+        if (v !== pInput.value)
+          return setField(cInput, document.getElementById('err-confirm'), false, 'Passwords do not match.');
+        setField(cInput, document.getElementById('err-confirm'), true, 'Passwords match!');
+        return true;
+      }
+
+      function validateRole() {
+        const v = rInput.value;
+        if (!v) return setField(rInput, document.getElementById('err-role'), false, 'Please select a role.');
+        setField(rInput, document.getElementById('err-role'), true, 'Role selected.');
+        return true;
+      }
+
+      uInput.addEventListener('input', validateUsername);
+      uInput.addEventListener('blur',  validateUsername);
+      eInput.addEventListener('input', validateEmail);
+      eInput.addEventListener('blur',  validateEmail);
+      pInput.addEventListener('input', validatePassword);
+      pInput.addEventListener('blur',  validatePassword);
+      cInput.addEventListener('input', validateConfirm);
+      cInput.addEventListener('blur',  validateConfirm);
+      rInput.addEventListener('change', validateRole);
+
+      form.addEventListener('submit', function (e) {
+        const ok = [validateUsername(), validateEmail(), validatePassword(), validateConfirm(), validateRole()];
+        if (ok.some(r => r !== true)) {
+          e.preventDefault();
+          // Scroll to first invalid field
+          const first = form.querySelector('.invalid');
+          if (first) first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

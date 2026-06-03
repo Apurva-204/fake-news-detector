@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Journalist Analysis — VerifyNews</title>
+  <meta name="description" content="Advanced journalist analysis dashboard with deep ML prediction details, category classification, sensitive keyword triggers, and research links." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+
+  <style>
+    /* ===== BASE ===== */
+    .j-page { background: var(--bg-color); min-height: 100vh; color: var(--text-primary); }
+    .j-container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+    /* ===== PAGE HEADER ===== */
+    .j-page-header { margin-bottom: 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .j-page-header h1 { font-size: 1.625rem; font-weight: 800; letter-spacing: -0.03em; margin: 0; }
+    .j-badge { display: inline-flex; align-items: center; gap: .375rem; padding: .25rem .75rem; border-radius: 6px;
+      font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      background: rgba(99,102,241,.15); color: #818CF8; }
+
+    /* ===== INPUT PANEL ===== */
+    .j-input-grid { display: grid; grid-template-columns: 1fr 360px; gap: 1.25rem; margin-bottom: 1.25rem; }
+    @media(max-width:900px){ .j-input-grid { grid-template-columns:1fr; } }
+
+    .j-panel { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; }
+    .j-panel-title { font-size: .75rem; font-weight: 700; color: var(--text-secondary);
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: .875rem; }
+
+    .j-textarea { width: 100%; min-height: 260px; padding: 1rem 1.25rem; font-family: inherit;
+      font-size: .9375rem; color: var(--text-primary); background: var(--bg-color);
+      border: 1px solid var(--border-color); border-radius: 12px; resize: vertical;
+      line-height: 1.7; transition: all .2s ease; box-sizing: border-box; }
+    .j-textarea:focus { outline: none; border-color: #6366F1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
+    .j-textarea::placeholder { color: var(--text-muted); }
+
+    .j-upload { border: 2px dashed var(--border-color); border-radius: 14px; padding: 1.75rem 1.25rem;
+      text-align: center; cursor: pointer; transition: all .2s ease; background: var(--upload-bg);
+      min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    .j-upload:hover { border-color: #6366F1; background: rgba(99,102,241,.04); }
+    .j-upload.has-file { border-color: #22C55E; background: rgba(34,197,94,.04); }
+    .j-upload-icon { font-size: 2rem; margin-bottom: .5rem; }
+    .j-upload-text { font-size: .875rem; color: var(--text-secondary); }
+    .j-upload-text strong { color: #818CF8; }
+    .j-fname { font-size: .8125rem; color: #4ADE80; font-weight: 600; margin-top: .5rem; }
+    .j-img-preview { margin-top: .875rem; max-width: 100%; max-height: 140px; border-radius: 10px; object-fit: contain; display: none; }
+
+    /* ===== ACTION ROW ===== */
+    .j-submit-row { display: flex; gap: 1rem; margin-bottom: 2rem; }
+    .j-btn-analyze { padding: .875rem 2rem; font-family: inherit; font-size: .9375rem; font-weight: 700;
+      color: var(--card-bg); background: var(--text-primary); border: none; border-radius: 12px;
+      cursor: pointer; transition: all .25s ease; display: flex; align-items: center; gap: .5rem; }
+    .j-btn-analyze:hover:not(:disabled) { box-shadow: 0 6px 24px rgba(0,0,0,.15); transform: translateY(-1px); }
+    .j-btn-analyze:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .j-btn-secondary { padding: .875rem 1.5rem; font-family: inherit; font-size: .9375rem; font-weight: 600;
+      color: var(--text-secondary); background: var(--bg-color); border: 1px solid var(--border-color);
+      border-radius: 12px; cursor: pointer; transition: all .2s ease; }
+    .j-btn-secondary:hover { color: var(--text-primary); background: var(--hover-bg); }
+
+    /* ===== RESULTS ===== */
+    .j-results { display: none; animation: jFadeIn .45s ease; }
+    .j-results.show { display: block; }
+    @keyframes jFadeIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+    .j-divider { height: 1px; background: var(--border-alpha); margin: 1.75rem 0; }
+
+    /* Top stat cards */
+    .j-stat-row { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 1.5rem; }
+    @media(max-width:800px){ .j-stat-row { grid-template-columns: 1fr 1fr; } }
+
+    .j-stat-card { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px;
+      padding: 1.25rem 1.5rem; position: relative; overflow: hidden; }
+    .j-stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background: var(--j-accent, #6366F1); border-radius:3px 3px 0 0; }
+    .j-stat-label { font-size: .6875rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin-bottom: .5rem; }
+    .j-stat-value { font-size: 1.75rem; font-weight: 800; letter-spacing: -.025em; line-height: 1; }
+    .j-stat-sub { font-size: .75rem; color: var(--text-muted); margin-top: .375rem; }
+
+    .j-stat-card.verdict-real { --j-accent: #22C55E; }
+    .j-stat-card.verdict-fake { --j-accent: #EF4444; }
+    .j-stat-card.risk-HIGH    { --j-accent: #EF4444; }
+    .j-stat-card.risk-MEDIUM  { --j-accent: #F59E0B; }
+    .j-stat-card.risk-LOW-MEDIUM { --j-accent: #F59E0B; }
+    .j-stat-card.risk-LOW     { --j-accent: #22C55E; }
+
+    .j-conf-bar-wrap { height: 5px; background: var(--border-alpha); border-radius: 100px; overflow: hidden; margin-top: .625rem; }
+    .j-conf-bar-fill { height: 100%; border-radius: 100px; transition: width 1s ease; }
+    .j-conf-bar-fill.real { background: linear-gradient(90deg,#22C55E,#4ADE80); }
+    .j-conf-bar-fill.fake { background: linear-gradient(90deg,#EF4444,#F87171); }
+
+    /* Category badge */
+    .j-cat-badge { display: inline-flex; align-items: center; gap: .375rem; padding: .375rem 1rem;
+      border-radius: 8px; font-size: .875rem; font-weight: 700; margin-top: .5rem; }
+
+    /* Risk pill */
+    .j-risk-pill { display: inline-flex; align-items: center; gap: .375rem; padding: .375rem 1rem;
+      border-radius: 100px; font-size: .8125rem; font-weight: 700; margin-top: .5rem; }
+    .risk-HIGH     { background: rgba(239,68,68,.15);   color: #EF4444; }
+    .risk-MEDIUM   { background: rgba(245,158,11,.15);  color: #F59E0B; }
+    .risk-LOW-MEDIUM{ background: rgba(245,158,11,.12); color: #FBBF24; }
+    .risk-LOW      { background: rgba(34,197,94,.12);   color: #22C55E; }
+
+    /* Section panels */
+    .j-section { background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; padding: 1.5rem; margin-bottom: 1.25rem; }
+    .j-section-title { font-size: .8125rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+      color: var(--text-secondary); margin-bottom: 1.125rem; display: flex; align-items: center; gap: .5rem; }
+
+    /* Signal breakdown rows */
+    .j-signal-row { display: flex; align-items: flex-start; gap: .875rem; padding: .875rem;
+      border-radius: 10px; margin-bottom: .625rem; border: 1px solid transparent; transition: border-color .2s; }
+    .j-signal-row:last-child { margin-bottom: 0; }
+    .j-signal-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: .1rem; }
+    .j-signal-body { flex: 1; min-width: 0; }
+    .j-signal-cat { font-size: .8125rem; font-weight: 700; margin-bottom: .375rem; }
+    .j-signal-words { display: flex; flex-wrap: wrap; gap: .375rem; }
+    .j-kw-chip { padding: .25rem .6875rem; border-radius: 6px; font-size: .8125rem; font-weight: 600;
+      font-family: 'JetBrains Mono', monospace; cursor: default; transition: transform .15s; }
+    .j-kw-chip:hover { transform: scale(1.05); }
+
+    /* TF-IDF words */
+    .j-tfidf-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .j-tfidf-chip { padding: .3125rem .875rem; background: rgba(99,102,241,.1); color: #818CF8;
+      border-radius: 8px; font-size: .8125rem; font-weight: 600; font-family: 'JetBrains Mono', monospace;
+      border: 1px solid rgba(99,102,241,.2); transition: all .15s; cursor: default; }
+    .j-tfidf-chip:hover { background: rgba(99,102,241,.2); border-color: #6366F1; }
+
+    /* Explanation */
+    .j-expl-text { font-size: .9375rem; color: var(--text-secondary); line-height: 1.8; }
+    .j-expl-text strong { color: var(--text-primary); }
+
+    /* Reasoning bullets */
+    .j-reasoning { background: var(--bg-color); border-left: 3px solid #6366F1;
+      border-radius: 0 10px 10px 0; padding: 1.125rem 1.375rem; margin-top: 1.125rem; }
+    .j-reasoning-title { font-size: .6875rem; font-weight: 700; color: #818CF8;
+      text-transform: uppercase; letter-spacing: .06em; margin-bottom: .625rem; }
+    .j-reasoning ul { margin: 0; padding: 0; list-style: none; }
+    .j-reasoning li { font-size: .875rem; color: var(--text-secondary); padding: .25rem 0;
+      padding-left: 1.125rem; position: relative; line-height: 1.6; }
+    .j-reasoning li::before { content: '›'; position: absolute; left: 0; color: #6366F1; font-weight: 700; }
+
+    /* Research links */
+    .j-research-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .625rem; }
+    @media(max-width:640px){ .j-research-grid { grid-template-columns:1fr; } }
+
+    .j-research-link { display: flex; align-items: center; gap: .75rem; padding: .75rem 1rem;
+      background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px;
+      text-decoration: none; color: var(--text-primary); transition: all .2s; }
+    .j-research-link:hover { border-color: #6366F1; background: rgba(99,102,241,.06); transform: translateX(2px); }
+    .j-research-icon { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center;
+      justify-content: center; font-size: .875rem; flex-shrink: 0; }
+    .j-research-icon.fact_check  { background: rgba(239,68,68,.1); }
+    .j-research-icon.verify      { background: rgba(245,158,11,.1); }
+    .j-research-icon.debunk      { background: rgba(99,102,241,.1); }
+    .j-research-label { font-size: .8125rem; font-weight: 600; flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .j-research-arrow { color: var(--text-muted); font-size: .75rem; flex-shrink: 0; }
+
+    /* OCR box */
+    .j-ocr-box { background: var(--bg-color); border: 1px solid var(--border-color); border-radius: 10px;
+      padding: 1rem 1.25rem; font-family: 'JetBrains Mono', monospace; font-size: .8125rem;
+      color: var(--text-secondary); line-height: 1.7; max-height: 180px; overflow-y: auto; white-space: pre-wrap; }
+
+    /* Live sources */
+    .j-source-link { display: block; padding: .875rem 1rem; border: 1px solid var(--border-color);
+      border-radius: 10px; text-decoration: none; background: var(--bg-color); transition: border-color .2s;
+      margin-bottom: .625rem; }
+    .j-source-link:last-child { margin-bottom: 0; }
+    .j-source-link:hover { border-color: #6366F1; }
+    .j-source-title { font-weight: 600; font-size: .875rem; color: var(--text-primary); margin-bottom: .25rem; }
+    .j-source-snippet { font-size: .8125rem; color: var(--text-secondary); }
+
+    /* No signals placeholder */
+    .j-no-signals { color: var(--text-muted); font-size: .875rem; font-style: italic; padding: .5rem 0; }
+
+    /* Spinner */
+    .j-spin { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3);
+      border-top-color: var(--card-bg); border-radius: 50%; animation: spin .7s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Inline validation feedback ── */
+    .j-field-msg {
+      font-size: 0.78rem;
+      margin-top: 0.4rem;
+      padding: 0.3rem 0.7rem;
+      border-radius: 6px;
+      font-weight: 500;
+      display: none;
+    }
+    .j-field-msg.error   { color: #DC2626; background: rgba(239,68,68,.08); display: flex; align-items: center; gap: .35rem; }
+    .j-field-msg.success { color: #16A34A; background: rgba(34,197,94,.08); display: flex; align-items: center; gap: .35rem; }
+    .j-textarea.invalid  { border-color: #EF4444 !important; box-shadow: 0 0 0 3px rgba(239,68,68,.12) !important; }
+    .j-textarea.valid    { border-color: #22C55E !important; box-shadow: 0 0 0 3px rgba(34,197,94,.10) !important; }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body class="j-page">
+
+  <!-- HEADER -->
+  <header class="site-header" role="banner">
+    <div class="container--wide header-inner">
+      <a href="/" class="header-brand" aria-label="Home">
+        <div class="header-title">VerifyNews</div>
+      </a>
+      <nav class="header-nav" aria-label="Main navigation">
+        <a href="/">Verify</a>
+        <a href="/explore">Explore</a>
+        <a href="/journalist" class="active">Journalist</a>
+        {% if current_user %}
+          {% if current_user.role == 'admin' %}
+            <a href="/admin">Admin</a>
+          {% endif %}
+          <span style="font-size:.875rem;color:var(--text-muted);font-weight:600;margin-left:1rem;">{{ current_user.username }}</span>
+          <a href="/logout" style="color:var(--text-secondary);">Logout</a>
+        {% endif %}
+        <button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left:1rem;">🌓 Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="j-container">
+
+    <!-- Page header -->
+    <div class="j-page-header">
+      <h1>Journalist Analysis <span class="j-badge">🔬 Advanced</span></h1>
+    </div>
+
+    <!-- Input -->
+    <div class="j-input-grid">
+      <div class="j-panel">
+        <div class="j-panel-title">Article / Claim Input</div>
+        <textarea id="j-text" class="j-textarea"
+          placeholder="Paste the full article, headline, or claim to investigate... (min. 20 characters)"
+          minlength="20"></textarea>
+        <div class="j-field-msg" id="j-text-msg"></div>
+      </div>
+      <div class="j-panel">
+        <div class="j-panel-title">Image Evidence (OCR)</div>
+        <div class="j-upload" id="j-upload-zone">
+          <input type="file" id="j-file" accept="image/*" hidden />
+          <span class="j-upload-icon">🖼️</span>
+          <p class="j-upload-text"><strong>Upload screenshot</strong> for OCR text extraction</p>
+          <p class="j-fname" id="j-fname" style="display:none;"></p>
+        </div>
+        <img id="j-img-preview" class="j-img-preview" alt="Preview" />
+      </div>
+    </div>
+
+    <div class="j-submit-row">
+      <button type="button" class="j-btn-analyze" id="j-analyze-btn">
+        <span id="j-btn-label">⚡ Run Analysis</span>
+      </button>
+      <button type="button" class="j-btn-secondary" id="j-clear-btn">Clear All</button>
+    </div>
+
+    <!-- RESULTS -->
+    <div class="j-results" id="j-results">
+      <div class="j-divider"></div>
+
+      <!-- Stat cards -->
+      <div class="j-stat-row">
+        <!-- Prediction -->
+        <div class="j-stat-card" id="j-card-verdict">
+          <div class="j-stat-label">Prediction</div>
+          <div class="j-stat-value" id="j-pred" style="color:#6366F1;">—</div>
+          <div class="j-stat-sub" id="j-verdict-text">Awaiting analysis</div>
+        </div>
+        <!-- Confidence -->
+        <div class="j-stat-card" style="--j-accent:#6366F1;">
+          <div class="j-stat-label">Confidence</div>
+          <div class="j-stat-value" id="j-conf">0%</div>
+          <div class="j-conf-bar-wrap">
+            <div class="j-conf-bar-fill" id="j-conf-bar" style="width:0%;"></div>
+          </div>
+        </div>
+        <!-- Category -->
+        <div class="j-stat-card" style="--j-accent:#10B981;">
+          <div class="j-stat-label">News Category</div>
+          <div id="j-cat-badge" class="j-cat-badge" style="background:rgba(107,114,128,.1);color:#6B7280;">📰 General News</div>
+          <div class="j-stat-sub" style="margin-top:.5rem;">Keyword-classified</div>
+        </div>
+        <!-- Risk -->
+        <div class="j-stat-card" id="j-card-risk" style="--j-accent:#22C55E;">
+          <div class="j-stat-label">Risk Level</div>
+          <div id="j-risk-pill" class="j-risk-pill risk-LOW">🟢 LOW</div>
+          <div class="j-stat-sub" style="margin-top:.25rem;">Based on signals found</div>
+        </div>
+      </div>
+
+      <!-- OCR section -->
+      <div class="j-section" id="j-ocr-section" style="display:none;">
+        <div class="j-section-title">🔍 OCR Extracted Text</div>
+        <div class="j-ocr-box" id="j-ocr-text">No text extracted.</div>
+      </div>
+
+      <!-- Signal breakdown -->
+      <div class="j-section">
+        <div class="j-section-title">🚦 Signal Breakdown — Triggered Categories</div>
+        <div id="j-signals-container">
+          <p class="j-no-signals">No sensitive category signals detected. Run analysis first.</p>
+        </div>
+      </div>
+
+      <!-- TF-IDF important words -->
+      <div class="j-section">
+        <div class="j-section-title">🔑 Top TF-IDF Features
+          <span style="font-size:.75rem;color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0;">— words that most influenced the prediction</span>
+        </div>
+        <div class="j-tfidf-grid" id="j-tfidf-container">
+          <span class="j-no-signals">Run analysis to see feature words.</span>
+        </div>
+      </div>
+
+      <!-- Explanation + Reasoning -->
+      <div class="j-section">
+        <div class="j-section-title">📋 Model Explanation</div>
+        <div class="j-expl-text" id="j-explanation">No explanation yet.</div>
+
+        <div class="j-reasoning" id="j-reasoning-box">
+          <div class="j-reasoning-title">🧠 Reasoning Details</div>
+          <ul id="j-reasoning-list">
+            <li>Submit content above to generate reasoning.</li>
+          </ul>
+        </div>
+
+        <!-- Live web sources -->
+        <div id="j-live-context" style="display:none; margin-top:1.25rem; padding-top:1.25rem; border-top:1px solid var(--border-alpha);">
+          <div class="j-section-title" style="margin-bottom:.75rem;">🌐 Live Web Fact Check</div>
+          <div id="j-live-sources"></div>
+        </div>
+      </div>
+
+      <!-- Research links -->
+      <div class="j-section">
+        <div class="j-section-title">🔎 Research Starting Points
+          <span style="font-size:.75rem;color:var(--text-muted);font-weight:500;text-transform:none;letter-spacing:0;">— click to search Google</span>
+        </div>
+        <div class="j-research-grid" id="j-research-container">
+          <span class="j-no-signals">Run analysis to generate research queries.</span>
+        </div>
+      </div>
+
+    </div><!-- /j-results -->
+  </main>
+
+  <script>
+  (function () {
+    "use strict";
+
+    const textarea   = document.getElementById("j-text");
+    const fileInput  = document.getElementById("j-file");
+    const uploadZone = document.getElementById("j-upload-zone");
+    const fnameEl    = document.getElementById("j-fname");
+    const imgPreview = document.getElementById("j-img-preview");
+    const analyzeBtn = document.getElementById("j-analyze-btn");
+    const btnLabel   = document.getElementById("j-btn-label");
+    const clearBtn   = document.getElementById("j-clear-btn");
+    const resultsDiv = document.getElementById("j-results");
+
+    // Upload
+    uploadZone.addEventListener("click", () => fileInput.click());
+    uploadZone.addEventListener("dragover", e => { e.preventDefault(); uploadZone.classList.add("has-file"); });
+    uploadZone.addEventListener("dragleave", () => { if (!fileInput.files.length) uploadZone.classList.remove("has-file"); });
+    uploadZone.addEventListener("drop", e => {
+      e.preventDefault();
+      if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; handleFile(e.dataTransfer.files[0]); }
+    });
+    fileInput.addEventListener("change", () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+    function handleFile(file) {
+      fnameEl.textContent = "📎 " + file.name;
+      fnameEl.style.display = "block";
+      uploadZone.classList.add("has-file");
+      const reader = new FileReader();
+      reader.onload = e => { imgPreview.src = e.target.result; imgPreview.style.display = "block"; };
+      reader.readAsDataURL(file);
+    }
+
+    // Clear
+    clearBtn.addEventListener("click", () => {
+      textarea.value = "";
+      fileInput.value = "";
+      fnameEl.style.display = "none";
+      uploadZone.classList.remove("has-file");
+      imgPreview.style.display = "none";
+      resultsDiv.classList.remove("show");
+    });
+
+    // Analyze
+    analyzeBtn.addEventListener("click", async () => {
+      const text = textarea.value.trim();
+      const file = fileInput.files[0];
+      const msgEl = document.getElementById('j-text-msg');
+
+      /* ── Validate ── */
+      if (!text && !file) {
+        textarea.classList.add('invalid');
+        textarea.classList.remove('valid');
+        msgEl.textContent = '✗ Please enter text or upload an image for analysis.';
+        msgEl.className = 'j-field-msg error';
+        textarea.focus();
+        return;
+      }
+      if (text && text.length < 20) {
+        textarea.classList.add('invalid');
+        textarea.classList.remove('valid');
+        msgEl.textContent = '✗ Text is too short — please enter at least 20 characters for accurate analysis.';
+        msgEl.className = 'j-field-msg error';
+        textarea.focus();
+        return;
+      }
+      /* Clear errors */
+      textarea.classList.remove('invalid');
+      textarea.classList.add('valid');
+      msgEl.textContent = '✓ Input accepted — running analysis...';
+      msgEl.className = 'j-field-msg success';
+
+      analyzeBtn.disabled = true;
+      btnLabel.innerHTML = '<span class="j-spin"></span> Analyzing...';
+
+      try {
+        const formData = new FormData();
+        if (text) formData.append("text", text);
+        if (file) formData.append("image", file);
+
+        const response = await fetch("/predict", { method: "POST", body: formData });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Analysis failed");
+        renderResults(data);
+      } catch (err) {
+        alert("Error: " + err.message);
+      } finally {
+        analyzeBtn.disabled = false;
+        btnLabel.textContent = "⚡ Run Analysis";
+      }
+    });
+
+    // Live textarea feedback
+    textarea.addEventListener('input', function () {
+      const msgEl = document.getElementById('j-text-msg');
+      const v = this.value.trim();
+      if (!v) {
+        this.classList.remove('valid', 'invalid');
+        msgEl.className = 'j-field-msg';
+        return;
+      }
+      if (v.length < 20) {
+        this.classList.add('invalid'); this.classList.remove('valid');
+        msgEl.textContent = '✗ Too short — need at least 20 characters (' + v.length + '/20 so far).';
+        msgEl.className = 'j-field-msg error';
+      } else {
+        const wc = v.split(/\s+/).filter(Boolean).length;
+        this.classList.add('valid'); this.classList.remove('invalid');
+        msgEl.textContent = '✓ ' + wc + ' word' + (wc !== 1 ? 's' : '') + ' — ready to analyze!';
+        msgEl.className = 'j-field-msg success';
+      }
+    });
+
+    /* ── RENDER ── */
+    function renderResults(data) {
+      const isReal = data.ml_label === "real";
+      const pct    = Math.min(100, Math.max(0, data.ml_confidence || 0));
+      const riskClass = "risk-" + (data.risk_level || "LOW");
+
+      /* Verdict card */
+      const verdictCard = document.getElementById("j-card-verdict");
+      verdictCard.className = "j-stat-card " + (isReal ? "verdict-real" : "verdict-fake");
+      const predEl = document.getElementById("j-pred");
+      predEl.textContent = isReal ? "REAL" : "FAKE";
+      predEl.style.color = isReal ? "#22C55E" : "#EF4444";
+      document.getElementById("j-verdict-text").textContent = data.verdict || "";
+
+      /* Confidence */
+      document.getElementById("j-conf").textContent = pct.toFixed(1) + "%";
+      const bar = document.getElementById("j-conf-bar");
+      bar.className = "j-conf-bar-fill " + (isReal ? "real" : "fake");
+      bar.style.width = pct + "%";
+
+      /* Category */
+      const meta = data.category_meta || { icon: "📰", color: "#6B7280", bg: "rgba(107,114,128,.12)" };
+      const catBadge = document.getElementById("j-cat-badge");
+      catBadge.textContent = (meta.icon || "") + " " + (data.category || "General News");
+      catBadge.style.background = meta.bg || "";
+      catBadge.style.color = meta.color || "";
+
+      /* Risk */
+      const riskCard = document.getElementById("j-card-risk");
+      riskCard.className = "j-stat-card " + riskClass;
+      const riskPill = document.getElementById("j-risk-pill");
+      riskPill.className = "j-risk-pill " + riskClass;
+      const riskIcons = { HIGH: "🔴", MEDIUM: "🟠", "LOW-MEDIUM": "🟡", LOW: "🟢" };
+      const rl = data.risk_level || "LOW";
+      riskPill.textContent = (riskIcons[rl] || "🟢") + " " + rl;
+
+      /* OCR */
+      const ocrSection = document.getElementById("j-ocr-section");
+      if (data.ocr_text) {
+        document.getElementById("j-ocr-text").textContent = data.ocr_text;
+        ocrSection.style.display = "block";
+      } else {
+        ocrSection.style.display = "none";
+      }
+
+      /* Signal breakdown */
+      const sigContainer = document.getElementById("j-signals-container");
+      if (data.signals && data.signals.length > 0) {
+        sigContainer.innerHTML = data.signals.map(sig => {
+          const chips = (sig.words || []).map(w =>
+            `<span class="j-kw-chip" style="background:${sig.bg};color:${sig.color};">${w}</span>`
+          ).join("");
+          return `
+            <div class="j-signal-row" style="background:${sig.bg};border-color:${sig.color}20;">
+              <div class="j-signal-icon">${sig.icon}</div>
+              <div class="j-signal-body">
+                <div class="j-signal-cat" style="color:${sig.color};">${sig.category} <span style="font-weight:400;color:var(--text-muted);">(${sig.count} trigger${sig.count !== 1 ? 's' : ''})</span></div>
+                <div class="j-signal-words">${chips}</div>
+              </div>
+            </div>`;
+        }).join("");
+      } else {
+        sigContainer.innerHTML = '<p class="j-no-signals">No sensitive category signals detected in this text.</p>';
+      }
+
+      /* TF-IDF words */
+      const tfidfContainer = document.getElementById("j-tfidf-container");
+      if (data.important_words && data.important_words.length > 0) {
+        tfidfContainer.innerHTML = data.important_words.map((w, i) => {
+          const opacity = Math.max(0.4, 1 - i * 0.08);
+          return `<span class="j-tfidf-chip" title="TF-IDF rank #${i+1}" style="opacity:${opacity.toFixed(2)};">${w}</span>`;
+        }).join("");
+      } else {
+        tfidfContainer.innerHTML = '<span class="j-no-signals">No features extracted.</span>';
+      }
+
+      /* Explanation */
+      document.getElementById("j-explanation").innerHTML = data.explanation || "No explanation available.";
+      if (data.ocr_text) {
+        document.getElementById("j-explanation").innerHTML +=
+          ' <em style="color:var(--text-muted);">(Text was extracted from the uploaded image via OCR.)</em>';
+      }
+
+      /* Reasoning bullets */
+      const reasoningList = document.getElementById("j-reasoning-list");
+      const bullets = isReal ? [
+        "Vocabulary and sentence structure match verified news corpus patterns",
+        "TF-IDF feature weights align with the <strong>real</strong> class in the training data",
+        "No strong sensationalism, urgency, or conspiracy signal words detected",
+        "Language style is consistent with professional journalism standards",
+      ] : [
+        "TF-IDF feature weights are strongly correlated with the <strong>fake</strong> class",
+        "Writing style or phrasing deviates from professional news standards",
+        data.signals && data.signals.length > 0
+          ? `Triggered <strong>${data.signals.length}</strong> sensitive category signal(s) — review the signal breakdown above`
+          : "Subtle linguistic patterns suggest emotional manipulation or unsubstantiated framing",
+        data.debunk_score > 0
+          ? `Live web search found <strong>${data.debunk_score}</strong> debunking signal(s) for this claim`
+          : "No live debunking found, but absence of evidence is not evidence of absence",
+      ];
+      if (data.debunk_score > 0 && isReal) {
+        bullets.push(`⚠️ Live web fact-check flagged <strong>${data.debunk_score}</strong> debunking signal(s) — override applied`);
+      }
+      reasoningList.innerHTML = bullets.map(b => `<li>${b}</li>`).join("");
+
+      /* Live sources */
+      const liveCtx = document.getElementById("j-live-context");
+      const liveSrc = document.getElementById("j-live-sources");
+      if (data.sources && data.sources.length > 0) {
+        liveSrc.innerHTML = data.sources.map(src => `
+          <a href="${src.url}" target="_blank" rel="noopener" class="j-source-link">
+            <div class="j-source-title">${src.title}</div>
+            <div class="j-source-snippet">${src.snippet}</div>
+          </a>`).join("");
+        liveCtx.style.display = "block";
+      } else {
+        liveCtx.style.display = "none";
+      }
+
+      /* Research queries */
+      const researchContainer = document.getElementById("j-research-container");
+      if (data.research_queries && data.research_queries.length > 0) {
+        const typeIcons = { fact_check: "🔍", verify: "✅", debunk: "🚫" };
+        researchContainer.innerHTML = data.research_queries.map(rq => {
+          const searchUrl = "https://www.google.com/search?q=" + encodeURIComponent(rq.query);
+          const icon = typeIcons[rq.type] || "🔎";
+          return `
+            <a href="${searchUrl}" target="_blank" rel="noopener" class="j-research-link">
+              <div class="j-research-icon ${rq.type}">${icon}</div>
+              <div class="j-research-label" title="${rq.label}">${rq.label}</div>
+              <div class="j-research-arrow">↗</div>
+            </a>`;
+        }).join("");
+      } else {
+        researchContainer.innerHTML = '<span class="j-no-signals">No research queries generated.</span>';
+      }
+
+      resultsDiv.classList.add("show");
+      resultsDiv.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
+  })();
+
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  }
+  </script>
+</body>
+</html>

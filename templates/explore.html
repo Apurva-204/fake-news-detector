@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Explore News — VerifyNews</title>
+  <meta name="description" content="Browse recently verified claims and trending fact-checks on VerifyNews." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}" />
+  <style>
+    /* ── Hero ── */
+    .explore-hero { padding: 3rem 0 2rem; text-align: center; }
+    .explore-hero h1 { font-size: 2.5rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
+    .explore-hero p  { font-size: 1rem; color: var(--text-secondary); }
+
+    /* ── Tag filters ── */
+    .tag-filters {
+      display: flex; justify-content: center;
+      gap: 0.75rem; margin-bottom: 3rem; flex-wrap: wrap;
+    }
+    .tag-filter {
+      padding: 0.5rem 1.125rem;
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 100px; font-size: 0.875rem; font-weight: 500;
+      color: var(--text-secondary); cursor: pointer; transition: all 0.2s;
+    }
+    .tag-filter:hover, .tag-filter.active {
+      background: var(--text-primary); color: var(--card-bg);
+      border-color: var(--text-primary);
+    }
+
+    /* ── News cards ── */
+    .news-card {
+      background: var(--card-bg); border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      cursor: pointer; display: flex; flex-direction: column;
+    }
+    .news-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 16px 40px rgba(0,0,0,0.10);
+      border-color: #6366F1;
+    }
+    .news-card-img {
+      width: 100%; height: 185px;
+      background-color: var(--border-color);
+      background-position: center; background-size: cover;
+    }
+    .news-card-body { padding: 1.5rem; flex: 1; display: flex; flex-direction: column; }
+    .news-card-title {
+      font-size: 1.0625rem; font-weight: 700; line-height: 1.35;
+      margin-bottom: 0.5rem; color: var(--text-primary);
+    }
+    .news-card-text {
+      font-size: 0.875rem; color: var(--text-secondary);
+      line-height: 1.6; margin-bottom: 1rem; flex: 1;
+    }
+    .news-card-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      border-top: 1px solid var(--border-color); padding-top: 0.875rem; margin-top: auto;
+    }
+    .news-card-cta {
+      font-size: 0.75rem; color: #6366F1; font-weight: 600;
+      margin-top: 0.5rem; opacity: 0; transition: opacity 0.2s;
+      display: flex; align-items: center; gap: 0.25rem;
+    }
+    .news-card:hover .news-card-cta { opacity: 1; }
+
+    /* ── Community badge on card ── */
+    .community-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      font-size: 0.6375rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 0.2rem 0.5rem; border-radius: 5px;
+      background: rgba(139,92,246,0.14); color: #8B5CF6;
+      margin-bottom: 0.375rem;
+    }
+
+    /* ── Community section heading ── */
+    .community-heading {
+      display: flex; align-items: center; gap: 1rem;
+      margin: 3rem 0 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .community-heading h2 {
+      font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em;
+    }
+    .community-heading .ch-badge {
+      font-size: 0.6875rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; padding: 0.25rem 0.75rem;
+      border-radius: 100px; background: rgba(139,92,246,0.12); color: #8B5CF6;
+    }
+    .community-heading .ch-live {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #8B5CF6;
+      animation: pulse 1.5s infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse {
+      0%,100%{ opacity:1; transform:scale(1); }
+      50%    { opacity:0.5; transform:scale(1.3); }
+    }
+    .community-count {
+      font-size: 0.8125rem; color: var(--text-muted); margin-left: auto;
+    }
+
+    /* ── Skeleton loader ── */
+    .skeleton-card {
+      background: var(--card-bg); border: 1px solid var(--border-color);
+      border-radius: 16px; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .skeleton-img {
+      height: 185px;
+      background: linear-gradient(90deg, var(--border-color) 25%, var(--bg-color) 50%, var(--border-color) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+    .skeleton-body { padding: 1.5rem; }
+    .skeleton-line {
+      height: 0.875rem; border-radius: 6px; margin-bottom: 0.75rem;
+      background: linear-gradient(90deg, var(--border-color) 25%, var(--bg-color) 50%, var(--border-color) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+    .skeleton-line.w-full  { width: 100%; }
+    .skeleton-line.w-3q    { width: 75%; }
+    .skeleton-line.w-half  { width: 50%; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── Empty state ── */
+    .community-empty {
+      text-align: center; padding: 3rem 1rem;
+      background: var(--card-bg); border: 1px dashed var(--border-color);
+      border-radius: 16px; color: var(--text-muted);
+    }
+    .community-empty .ce-icon { font-size: 2.5rem; margin-bottom: 0.75rem; opacity: 0.5; }
+    .community-empty p { font-size: 0.9375rem; }
+
+    /* ═══════════════════════════
+       MODAL
+    ═══════════════════════════ */
+    .modal-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(5px);
+      z-index: 1000;
+      align-items: center; justify-content: center;
+      padding: 1.5rem;
+    }
+    .modal-overlay.open { display: flex; animation: mFadeIn 0.2s ease; }
+    @keyframes mFadeIn { from{opacity:0} to{opacity:1} }
+
+    .modal-box {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      max-width: 580px; width: 100%;
+      max-height: 90vh; overflow-y: auto;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.25);
+      position: relative;
+      animation: mSlideUp 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes mSlideUp {
+      from { opacity:0; transform: translateY(28px) scale(0.97); }
+      to   { opacity:1; transform: translateY(0) scale(1); }
+    }
+
+    .modal-hero-img {
+      width: 100%; height: 220px;
+      background-size: cover; background-position: center;
+      background-color: var(--border-color);
+      border-radius: 20px 20px 0 0;
+    }
+
+    .modal-body { padding: 1.75rem 2rem 2rem; }
+
+    .modal-meta {
+      display: flex; align-items: center; gap: 0.625rem;
+      flex-wrap: wrap; margin-bottom: 0.875rem;
+    }
+    .modal-cat-tag {
+      font-size: 0.6875rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.07em;
+      background: rgba(99,102,241,0.12); color: #818CF8;
+      padding: 0.25rem 0.625rem; border-radius: 6px;
+    }
+    .modal-time-tag { font-size: 0.8125rem; color: var(--text-muted); }
+
+    .modal-title {
+      font-size: 1.375rem; font-weight: 800; letter-spacing: -0.02em;
+      line-height: 1.3; color: var(--text-primary); margin-bottom: 0.875rem;
+    }
+    .modal-text {
+      font-size: 0.9375rem; color: var(--text-secondary);
+      line-height: 1.8; margin-bottom: 1.5rem;
+    }
+
+    /* Verdict banner */
+    .modal-verdict {
+      display: flex; align-items: flex-start; gap: 0.75rem;
+      padding: 1rem 1.25rem; border-radius: 12px;
+      border: 1px solid transparent; margin-bottom: 1.5rem;
+    }
+    .modal-verdict.v-real       { background: rgba(34,197,94,.08);  border-color: rgba(34,197,94,.25); }
+    .modal-verdict.v-fake       { background: rgba(239,68,68,.08);  border-color: rgba(239,68,68,.25); }
+    .modal-verdict.v-suspicious { background: rgba(245,158,11,.08); border-color: rgba(245,158,11,.25); }
+
+    .mv-icon  { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+    .mv-label { font-size: 0.8125rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
+    .v-real       .mv-label { color: #16A34A; }
+    .v-fake       .mv-label { color: #DC2626; }
+    .v-suspicious .mv-label { color: #D97706; }
+    .mv-desc  { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.125rem; }
+
+    /* Actions */
+    .modal-actions { display: flex; gap: 0.75rem; }
+    .m-btn-verify {
+      flex: 1; padding: 0.875rem 1.5rem;
+      font-family: inherit; font-size: 0.9375rem; font-weight: 700;
+      color: var(--card-bg); background: var(--text-primary);
+      border: none; border-radius: 12px; cursor: pointer;
+      transition: all 0.2s; display: flex; align-items: center;
+      justify-content: center; gap: 0.5rem;
+    }
+    .m-btn-verify:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+    .m-btn-close {
+      padding: 0.875rem 1.25rem;
+      font-family: inherit; font-size: 0.9375rem; font-weight: 600;
+      color: var(--text-secondary); background: var(--bg-color);
+      border: 1px solid var(--border-color); border-radius: 12px;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .m-btn-close:hover { color: var(--text-primary); }
+
+    /* X close button */
+    .modal-x {
+      position: absolute; top: 0.875rem; right: 0.875rem;
+      width: 32px; height: 32px; border-radius: 50%;
+      background: rgba(0,0,0,0.4); color: #fff;
+      border: none; cursor: pointer; font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s; z-index: 5;
+    }
+    .modal-x:hover { background: rgba(0,0,0,0.65); }
+  </style>
+  <script>
+    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  </script>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="site-header">
+    <div class="container--wide header-inner">
+      <a href="/" class="header-brand" aria-label="Home">
+        <div class="header-title">VerifyNews</div>
+      </a>
+      <nav class="header-nav" aria-label="Main navigation">
+        <a href="/">Verify</a>
+        <a href="/explore" class="active">Explore</a>
+        {% if current_user %}
+          {% if current_user.role == 'admin' %}
+            <a href="/admin">Admin</a>
+          {% elif current_user.role == 'journalist' %}
+            <a href="/journalist">Journalist</a>
+          {% else %}
+            <a href="/dashboard">Dashboard</a>
+          {% endif %}
+          <span style="font-size:0.875rem; color:var(--text-primary); font-weight:600; margin-left:1rem;">
+            {{ current_user.username }}
+          </span>
+          <a href="/logout" style="color:var(--text-secondary);">Logout</a>
+        {% else %}
+          <a href="/login" class="btn btn--primary btn--sm" style="color:var(--bg-color);">Sign In</a>
+        {% endif %}
+        <button onclick="toggleTheme()" class="btn btn--sm btn--secondary" style="margin-left:1rem;">🌓 Theme</button>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container--wide">
+    <section class="explore-hero">
+      <h1>Explore News</h1>
+      <p>Browse recently verified claims and trending fact-checks. <strong>Click any card</strong> to read details.</p>
+    </section>
+
+    <!-- Tag Filters -->
+    <div class="tag-filters">
+      <div class="tag-filter active" data-category="all">All</div>
+      <div class="tag-filter" data-category="politics">Politics</div>
+      <div class="tag-filter" data-category="health">Health</div>
+      <div class="tag-filter" data-category="technology">Technology</div>
+      <div class="tag-filter" data-category="world">World</div>
+    </div>
+
+    <!-- Cards Grid -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:2rem; margin-bottom:4rem;">
+
+      <!-- 1 Fake – Technology -->
+      <div class="news-card" data-category="technology"
+           data-title="New tech bill bans encrypted messaging apps"
+           data-text="Viral post claims the upcoming senate bill will completely outlaw all forms of end-to-end encryption in the US by next year. Security experts have widely debunked this claim — no such bill exists in any legislative pipeline, and multiple senators have publicly opposed any encryption ban."
+           data-verdict="fake" data-verdict-label="Fake / False"
+           data-verdict-desc="This claim has been identified as misinformation. No such bill was ever introduced."
+           data-time="2 hours ago"
+           data-img="https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1572949645841-094f3a9c4c94?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">New tech bill bans encrypted messaging apps</h3>
+          <p class="news-card-text">Viral post claims the upcoming senate bill will completely outlaw all forms of end-to-end encryption in the US by next year.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">2 hours ago</span>
+            <span class="tag tag--fake">Fake</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 2 Real – World -->
+      <div class="news-card" data-category="world"
+           data-title="Central Bank raises interest rates by 0.25%"
+           data-text="Official announcement confirms a modest rate hike in response to inflation metrics over the last quarter. The decision was unanimously approved by the monetary policy committee following two consecutive months of above-target inflation. Economists expect one more hike before year-end."
+           data-verdict="real" data-verdict-label="Verified Real"
+           data-verdict-desc="This claim is confirmed by the Central Bank's official press release and multiple credible news outlets."
+           data-time="5 hours ago"
+           data-img="https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Central Bank raises interest rates by 0.25%</h3>
+          <p class="news-card-text">Official announcement confirms a modest rate hike in response to inflation metrics over the last quarter.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">5 hours ago</span>
+            <span class="tag tag--real">Real</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 3 Suspicious – Technology -->
+      <div class="news-card" data-category="technology"
+           data-title="Leaked documents reveal secret Mars mission"
+           data-text="Unverified sources suggest a covert operation launching next month, bypassing standard space agency protocols. The documents, which appeared on an anonymous forum, have not been authenticated by any space agency. NASA and ESA have both declined to comment on the reports."
+           data-verdict="suspicious" data-verdict-label="Suspicious"
+           data-verdict-desc="This claim could not be fully verified. The source documents have not been authenticated by any official body."
+           data-time="1 day ago"
+           data-img="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Leaked documents reveal secret Mars mission</h3>
+          <p class="news-card-text">Unverified sources suggest a covert operation launching next month, bypassing standard space agency protocols.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">1 day ago</span>
+            <span class="tag tag--suspicious">Suspicious</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 4 Fake – Health -->
+      <div class="news-card" data-category="health"
+           data-title="FDA approves new miracle weight loss drug"
+           data-text="Sponsored articles claim a new over-the-counter pill guarantees 20lbs of weight loss in one week without diet changes. The FDA has issued a warning against this claim, confirming no such drug has been approved. The ads are linked to a known supplement scam operating under multiple brand names."
+           data-verdict="fake" data-verdict-label="Fake / False"
+           data-verdict-desc="The FDA has officially denied approving any such drug. These are fraudulent sponsored ads."
+           data-time="1 day ago"
+           data-img="https://images.unsplash.com/photo-1584931423298-c576fda54bd2?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1584931423298-c576fda54bd2?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">FDA approves new miracle weight loss drug</h3>
+          <p class="news-card-text">Sponsored articles claim a new over-the-counter pill guarantees 20lbs of weight loss in one week without diet changes.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">1 day ago</span>
+            <span class="tag tag--fake">Fake</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 5 Real – World -->
+      <div class="news-card" data-category="world"
+           data-title="Global markets rally after trade deal finalized"
+           data-text="Stock indices saw widespread gains following the successful conclusion of the international trade summit. The S&amp;P 500 rose 1.8%, with technology and energy sectors leading the charge. The trade agreement covers tariff reductions across 40 product categories between six major economies."
+           data-verdict="real" data-verdict-label="Verified Real"
+           data-verdict-desc="Confirmed by official statements from the summit and widely reported by Reuters, Bloomberg, and the Associated Press."
+           data-time="2 days ago"
+           data-img="https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Global markets rally after trade deal finalized</h3>
+          <p class="news-card-text">Stock indices saw widespread gains following the successful conclusion of the international trade summit.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">2 days ago</span>
+            <span class="tag tag--real">Real</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 6 Real – Politics -->
+      <div class="news-card" data-category="politics"
+           data-title="Major healthcare reform bill passes Senate"
+           data-text="The comprehensive bill, aiming to lower prescription drug costs, passed with a narrow majority late last night. The legislation includes provisions to cap insulin prices, allow Medicare to negotiate drug prices directly, and extend subsidies for low-income households. It now moves to the House for a vote."
+           data-verdict="real" data-verdict-label="Verified Real"
+           data-verdict-desc="Confirmed by the Senate's official voting record and reported by major news organisations."
+           data-time="3 days ago"
+           data-img="https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Major healthcare reform bill passes Senate</h3>
+          <p class="news-card-text">The comprehensive bill, aiming to lower prescription drug costs, passed with a narrow majority late last night.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">3 days ago</span>
+            <span class="tag tag--real">Real</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 7 Fake – Politics -->
+      <div class="news-card" data-category="politics"
+           data-title="Senator proposes ban on all social media platforms"
+           data-text="A viral claim suggests a sweeping new bill would shut down Twitter, Facebook and Instagram within 90 days if passed. Fact-checkers have confirmed no such bill has been filed in Congress. The claim originated from a satirical website and was shared out of context across multiple platforms."
+           data-verdict="fake" data-verdict-label="Fake / False"
+           data-verdict-desc="No such bill exists. The claim originated from a satirical publication and was shared out of context."
+           data-time="4 days ago"
+           data-img="https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1529107386315-e1a2ed48a620?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Senator proposes ban on all social media platforms</h3>
+          <p class="news-card-text">A viral claim suggests a sweeping new bill would shut down Twitter, Facebook and Instagram within 90 days if passed.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">4 days ago</span>
+            <span class="tag tag--fake">Fake</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 8 Real – Health -->
+      <div class="news-card" data-category="health"
+           data-title="WHO confirms new vaccine 94% effective against strain"
+           data-text="Clinical trial results published this week show the latest mRNA vaccine achieving high efficacy rates across all age groups. The Phase 3 trial involved over 40,000 participants across 12 countries. The WHO has recommended the vaccine for inclusion in national immunization schedules pending local regulatory approvals."
+           data-verdict="real" data-verdict-label="Verified Real"
+           data-verdict-desc="Peer-reviewed clinical trial results published in The Lancet, confirmed by the WHO's official recommendation."
+           data-time="5 days ago"
+           data-img="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">WHO confirms new vaccine 94% effective against strain</h3>
+          <p class="news-card-text">Clinical trial results published this week show the latest mRNA vaccine achieving high efficacy rates across all age groups.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">5 days ago</span>
+            <span class="tag tag--real">Real</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 9 Real – Technology -->
+      <div class="news-card" data-category="technology"
+           data-title="EU passes landmark AI regulation law"
+           data-text="The European Union has formally adopted the Artificial Intelligence Act, the world's first comprehensive legal framework governing AI systems. The law classifies AI into risk tiers and bans certain high-risk uses like real-time biometric surveillance in public spaces. Tech companies have 24 months to comply."
+           data-verdict="real" data-verdict-label="Verified Real"
+           data-verdict-desc="Confirmed by the European Parliament's official voting record and statements from the European Commission."
+           data-time="6 hours ago"
+           data-img="https://images.unsplash.com/photo-1677442135703-1787eea5ce01?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1677442135703-1787eea5ce01?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">EU passes landmark AI regulation law</h3>
+          <p class="news-card-text">The European Union has formally adopted the AI Act, the world's first comprehensive legal framework governing artificial intelligence systems.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">6 hours ago</span>
+            <span class="tag tag--real">Real</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 10 Fake – Health -->
+      <div class="news-card" data-category="health"
+           data-title="5G towers cause cancer, leaked report claims"
+           data-text="A post circulating on social media claims a secret WHO report proves 5G radiation is responsible for a 40% spike in cancer diagnoses worldwide. The WHO has firmly denied any such report exists. Dozens of peer-reviewed studies confirm 5G frequencies are non-ionising and cannot damage DNA."
+           data-verdict="fake" data-verdict-label="Fake / False"
+           data-verdict-desc="No credible scientific evidence supports this claim. The WHO has officially denied the existence of any such report."
+           data-time="8 hours ago"
+           data-img="https://images.unsplash.com/photo-1584483766114-2cea6facdf57?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1584483766114-2cea6facdf57?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">5G towers cause cancer, leaked report claims</h3>
+          <p class="news-card-text">A viral post claims a secret WHO report proves 5G radiation is responsible for a 40% spike in cancer diagnoses worldwide.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">8 hours ago</span>
+            <span class="tag tag--fake">Fake</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 11 Suspicious – Politics -->
+      <div class="news-card" data-category="politics"
+           data-title="Thousands of ballots found in warehouse after election"
+           data-text="Social media posts allege officials discovered boxes of uncounted ballots in a storage facility three days after election results were certified. Election authorities have confirmed the boxes contained blank ballot paper for future use, not cast votes. Independent observers verified the certification process."
+           data-verdict="suspicious" data-verdict-label="Suspicious"
+           data-verdict-desc="The claim is misleading — the boxes contained unused blank ballots, not cast votes. Context matters here."
+           data-time="2 days ago"
+           data-img="https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1540910419892-4a36d2c3266c?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Thousands of ballots found in warehouse after election</h3>
+          <p class="news-card-text">Posts allege officials discovered boxes of uncounted ballots in a storage facility three days after election results were certified.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">2 days ago</span>
+            <span class="tag tag--suspicious">Suspicious</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+
+      <!-- 12 Real – Health -->
+      <div class="news-card" data-category="health"
+           data-title="Scientists develop blood test that detects 50 cancer types"
+           data-text="Researchers at Johns Hopkins University have published results of a multi-cancer early detection blood test capable of identifying over 50 types of cancer from a single sample, often years before symptoms appear. The test, called CancerSEEK, achieved over 99% specificity in a trial of 10,000 participants."
+           data-verdict="real" data-verdict-label="Verified Real"
+           data-verdict-desc="Published in the peer-reviewed journal Science and independently verified by oncology experts worldwide."
+           data-time="3 days ago"
+           data-img="https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=600&q=80">
+        <div class="news-card-img" style="background-image:url('https://images.unsplash.com/photo-1559757148-5c350d0d3c56?auto=format&fit=crop&w=600&q=80');"></div>
+        <div class="news-card-body">
+          <h3 class="news-card-title">Scientists develop blood test that detects 50 cancer types</h3>
+          <p class="news-card-text">Researchers have developed a blood test capable of identifying over 50 types of cancer from a single sample, often years before symptoms appear.</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">3 days ago</span>
+            <span class="tag tag--real">Real</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>
+      </div>
+      <!-- Community Cards injected here by JS -->
+      <div class="community-heading" id="community-section" style="display:none;">
+        <div class="ch-live"></div>
+        <h2>Community Verified</h2>
+        <span class="ch-badge">Live</span>
+        <span class="community-count" id="community-count"></span>
+      </div>
+      <div id="community-grid"
+           style="display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:2rem; margin-bottom:4rem;">
+        <!-- skeleton placeholders while loading -->
+        <div class="skeleton-card" id="skel-1">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-body">
+            <div class="skeleton-line w-full"></div>
+            <div class="skeleton-line w-3q"></div>
+            <div class="skeleton-line w-half"></div>
+          </div>
+        </div>
+        <div class="skeleton-card" id="skel-2">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-body">
+            <div class="skeleton-line w-full"></div>
+            <div class="skeleton-line w-3q"></div>
+            <div class="skeleton-line w-half"></div>
+          </div>
+        </div>
+        <div class="skeleton-card" id="skel-3">
+          <div class="skeleton-img"></div>
+          <div class="skeleton-body">
+            <div class="skeleton-line w-full"></div>
+            <div class="skeleton-line w-3q"></div>
+            <div class="skeleton-line w-half"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ═══════ MODAL ═══════ -->
+  <div class="modal-overlay" id="explore-modal" role="dialog" aria-modal="true" aria-labelledby="m-title">
+    <div class="modal-box">
+      <button class="modal-x" id="m-close-x" aria-label="Close">✕</button>
+
+      <div class="modal-hero-img" id="m-img"></div>
+
+      <div class="modal-body">
+        <div class="modal-meta">
+          <span class="modal-cat-tag" id="m-cat"></span>
+          <span class="modal-time-tag" id="m-time"></span>
+        </div>
+
+        <h2 class="modal-title" id="m-title"></h2>
+        <p class="modal-text"  id="m-text"></p>
+
+        <div class="modal-verdict" id="m-verdict">
+          <span class="mv-icon"  id="m-v-icon"></span>
+          <div>
+            <div class="mv-label" id="m-v-label"></div>
+            <div class="mv-desc"  id="m-v-desc"></div>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="m-btn-verify" id="m-verify-btn">🔍 Verify this claim yourself</button>
+          <button class="m-btn-close"  id="m-close-btn">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer style="text-align:center;padding:2rem;font-size:0.875rem;color:var(--text-muted);border-top:1px solid var(--border-color);">
+    VerifyNews &copy; 2024
+  </footer>
+
+  <script>
+    /* ── Active filter tracker ── */
+    let _activeFilter = 'all';
+
+    /* ── Category filter ── */
+    document.querySelectorAll('.tag-filter').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tag-filter').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        _activeFilter = btn.dataset.category;
+        document.querySelectorAll('.news-card').forEach(c => {
+          c.style.display = (_activeFilter === 'all' || c.dataset.category === _activeFilter) ? 'flex' : 'none';
+        });
+      });
+    });
+
+    /* ════════════════════════════
+       COMMUNITY CARDS — live fetch
+    ════════════════════════════ */
+    const VTAG_CLASS = { real:'tag--real', fake:'tag--fake', suspicious:'tag--suspicious' };
+    const VTAG_LABEL = { real:'Real', fake:'Fake', suspicious:'Suspicious' };
+
+    function buildCommunityCard(card) {
+      const el = document.createElement('div');
+      el.className = 'news-card';
+      el.dataset.category     = card.category     || 'world';
+      el.dataset.title        = card.title        || '';
+      el.dataset.text         = card.text         || '';
+      el.dataset.verdict      = card.verdict      || 'fake';
+      el.dataset.verdictLabel = card.verdictLabel || '';
+      el.dataset.verdictDesc  = card.verdictDesc  || '';
+      el.dataset.time         = card.time         || '';
+      el.dataset.img          = card.img          || '';
+
+      const tagCls   = VTAG_CLASS[card.verdict] || 'tag--suspicious';
+      const tagLabel = VTAG_LABEL[card.verdict] || 'Unknown';
+      const shortTitle = card.title ? (card.title.length > 72 ? card.title.slice(0,69)+'...' : card.title) : '(No title)';
+      const shortText  = card.text  ? (card.text.length  > 100 ? card.text.slice(0,97)+'...' : card.text)  : '';
+      const byLine = card.submittedBy ? `By ${card.submittedBy}` : '';
+
+      el.innerHTML = `
+        <div class="news-card-img" style="background-image:url('${card.img}');"></div>
+        <div class="news-card-body">
+          <span class="community-badge">🌐 Community</span>
+          <h3 class="news-card-title">${escapeHtml(shortTitle)}</h3>
+          <p class="news-card-text">${escapeHtml(shortText)}</p>
+          <div class="news-card-footer">
+            <span style="font-size:0.75rem;color:var(--text-muted);">${escapeHtml(byLine || card.time || '')}</span>
+            <span class="tag ${tagCls}">${tagLabel}</span>
+          </div>
+          <p class="news-card-cta">🔍 Click to read more →</p>
+        </div>`;
+
+      el.addEventListener('click', () => openModal(el));
+      return el;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    async function loadCommunityCards() {
+      const grid    = document.getElementById('community-grid');
+      const section = document.getElementById('community-section');
+      const countEl = document.getElementById('community-count');
+
+      try {
+        const resp = await fetch('/api/explore-cards');
+        if (!resp.ok) throw new Error('API error');
+        const data = await resp.json();
+        const cards = data.cards || [];
+
+        // Clear skeletons
+        grid.innerHTML = '';
+
+        if (cards.length === 0) {
+          section.style.display = 'none';
+          grid.innerHTML = `
+            <div class="community-empty" style="grid-column:1/-1;">
+              <div class="ce-icon">🔍</div>
+              <p><strong>No community cards yet.</strong></p>
+              <p style="margin-top:.5rem;font-size:.875rem;">
+                Verify a news article on the <a href="/" style="color:#6366F1;font-weight:600;">Verify page</a>
+                and it will automatically appear here!
+              </p>
+            </div>`;
+          return;
+        }
+
+        section.style.display = 'flex';
+        countEl.textContent = cards.length + ' submission' + (cards.length !== 1 ? 's' : '');
+
+        cards.forEach(card => {
+          const el = buildCommunityCard(card);
+          // Apply current active filter
+          if (_activeFilter !== 'all' && el.dataset.category !== _activeFilter) {
+            el.style.display = 'none';
+          }
+          grid.appendChild(el);
+        });
+
+      } catch(e) {
+        // On error just hide the skeleton quietly
+        grid.innerHTML = '';
+        section.style.display = 'none';
+        console.warn('Could not load community cards:', e);
+      }
+    }
+
+    // Load on page ready, then refresh every 30 s
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCommunityCards();
+      setInterval(loadCommunityCards, 30000);
+    });
+
+    /* ── Modal ── */
+    const overlay  = document.getElementById('explore-modal');
+    const mImg     = document.getElementById('m-img');
+    const mCat     = document.getElementById('m-cat');
+    const mTime    = document.getElementById('m-time');
+    const mTitle   = document.getElementById('m-title');
+    const mText    = document.getElementById('m-text');
+    const mVerdict = document.getElementById('m-verdict');
+    const mVIcon   = document.getElementById('m-v-icon');
+    const mVLabel  = document.getElementById('m-v-label');
+    const mVDesc   = document.getElementById('m-v-desc');
+    const mVerify  = document.getElementById('m-verify-btn');
+
+    const VCFG = {
+      real:       { cls:'v-real',       icon:'✅' },
+      fake:       { cls:'v-fake',       icon:'🚫' },
+      suspicious: { cls:'v-suspicious', icon:'⚠️' },
+    };
+
+    function openModal(card) {
+      const v   = card.dataset.verdict || 'suspicious';
+      const cfg = VCFG[v] || VCFG.suspicious;
+      const cat = card.dataset.category || '';
+
+      mImg.style.backgroundImage = `url('${card.dataset.img}')`;
+      mCat.textContent   = cat.charAt(0).toUpperCase() + cat.slice(1);
+      mTime.textContent  = card.dataset.time || '';
+      mTitle.textContent = card.dataset.title || '';
+      mText.textContent  = card.dataset.text  || '';
+
+      mVerdict.className = 'modal-verdict ' + cfg.cls;
+      mVIcon.textContent  = cfg.icon;
+      mVLabel.textContent = card.dataset.verdictLabel || v;
+      mVDesc.textContent  = card.dataset.verdictDesc  || '';
+
+      mVerify.onclick = () => {
+        sessionStorage.setItem('prefill_text', card.dataset.title + '\n\n' + card.dataset.text);
+        window.location.href = '/';
+      };
+
+      overlay.classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      overlay.classList.remove('open');
+      document.body.style.overflow = '';
+    }
+
+    document.querySelectorAll('.news-card').forEach(c => c.addEventListener('click', () => openModal(c)));
+    document.getElementById('m-close-x').addEventListener('click', closeModal);
+    document.getElementById('m-close-btn').addEventListener('click', closeModal);
+    overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+  </script>
+
+  <script>
+    function toggleTheme() {
+      const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('theme', next);
+    }
+  </script>
+
+  <!-- Pre-fill verify textarea when redirected from Explore -->
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const prefill = sessionStorage.getItem('prefill_text');
+      if (prefill) {
+        const ta = document.getElementById('user-text');
+        if (ta) { ta.value = prefill; sessionStorage.removeItem('prefill_text'); ta.dispatchEvent(new Event('input')); }
+      }
+    });
+  </script>
+
+</body>
+</html>
